@@ -1,0 +1,74 @@
+#!/bin/sh
+
+#export CC="ccache gcc" CXX="ccache g++"
+DISTCHECK_CONFIGURE_FLAGS=" \
+        --enable-loadable-modules \
+        --enable-gnuregex \
+        --enable-optimizations \
+        --enable-inline \
+        --enable-debug-cbdata \
+        --enable-xmalloc-statistics \
+        --enable-async-io \
+        --enable-storeio \
+        --enable-disk-io \
+        --enable-removal-policies \
+        --enable-icmp \
+        --enable-delay-pools \
+        --enable-icap-client \
+        --enable-useragent-log \
+        --enable-referer-log \
+        --enable-wccp \
+        --enable-wccpv2 \
+        --enable-kill-parent-hack \
+        --enable-snmp \
+        --enable-cachemgr-hostname \
+        --enable-eui \
+        --enable-htcp \
+        --enable-ssl \
+        --enable-forw-via-db \
+        --enable-cache-digests \
+        --enable-poll \
+        --enable-select \
+        --enable-http-violations \
+        --enable-ipfw-transparent \
+        --enable-leakfinder \
+        --enable-follow-x-forwarded-for \
+        --enable-ident-lookups \
+        --enable-internal-dns \
+        --enable-default-hostsfile \
+        --enable-auth \
+        --enable-basic-auth-helpers \
+        --enable-ntlm-auth-helpers \
+        --enable-negotiate-auth-helpers \
+        --enable-digest-auth-helpers \
+        --enable-ntlm-fail-open \
+        --enable-external-acl-helpers \
+        --enable-url-rewrite-helpers \
+        --enable-mempools \
+        --enable-unlinkd \
+        --enable-stacktraces \
+        --enable-vary \
+        --enable-x-accelerator-vary \
+        --enable-ipv6 \
+        --enable-auto-locale \
+        --enable-translation \
+        --enable-zph-qos \
+        --enable-esi \
+        --with-aio \
+        --with-build-environment=default \
+        --with-dl \
+        --with-dns-cname \
+        --with-gnu-ld \
+        --with-ipv6-split-stack \
+        --with-large-files \
+        --with-pic \
+        --with-pthreads \
+        --enable-ssl-crtd \
+	--enable-ecap=yes \
+	"
+
+#    --enable-cpu-profiling \
+test -e ./configure || ./bootstrap.sh
+./configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info
+#&& make all check
+

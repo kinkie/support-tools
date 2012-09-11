@@ -1,0 +1,27 @@
+#!/bin/sh
+
+deldir() {
+    test -d $1 && rm -rf $1
+}
+if test -f test-builds.sh; then
+    :
+else
+    echo "Da eseguire nella top_srcdir di squid"
+    exit 1
+fi
+
+if test -d btlayer-00-bootstrap; then
+    chmod -R u+w btlayer*
+    rm -r btlayer*
+fi
+touch foo.o
+find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
+
+deldir autom4te.cache
+deldir cfgaux
+deldir lib/libTrie/autom4te.cache
+deldir lib/libTrie/cfgaux
+deldir libltdl
+deldir lib/libTrie/libltdl
+
+bzr clean-tree --force
