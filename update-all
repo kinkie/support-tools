@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for dir in *
+do
+	if [ ! -d "$dir" ]; then
+		continue
+	fi
+	if [ ! -d "$dir/.bzr" ]; then
+		continue
+	fi
+	(cd $dir; bzr update)
+done
