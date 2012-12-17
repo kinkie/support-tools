@@ -78,6 +78,9 @@ sub handle_dir {
   }
 }
 
+if ($#ARGV < 0) { #no arguments
+	push @ARGV, ".";
+}
 foreach (@ARGV) {
   if (-d $_) {
     &handle_dir($_);
