@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ `id -u` -eq 0 ]; then
+  exec su jenkins -c "$0 $@"
+fi
+
+CCACHE_COMPRESS=1
+export CCACHE_COMPRESS
+
+AUTOCONF_VERSION=2.61
+AUTOMAKE_VERSION=1.10
+export AUTOCONF_VERSION AUTOMAKE_VERSION
+
+cd $HOME
+(\
+while sleep 60; do
+	/usr/local/bin/curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
+	exec java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/obsd-51-x86/slave-agent.jnlp >start-jenkins.log 2>&1 
+done
+)&

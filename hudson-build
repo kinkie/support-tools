@@ -1,0 +1,20 @@
+#!/bin/sh
+
+export PATH=/usr/local/bin:$PATH
+if [ -z "$AUTOMAKE_VERSION" ]; then
+	export AUTOMAKE_VERSION=1.11
+fi
+if [ -z "$AUTOCONF_VERSION" ]; then
+	export AUTOCONF_VERSION=2.65
+fi
+#export CONFIG_SHELL=/usr/local/bin/bash
+export M4=/usr/local/bin/gm4
+
+CXXFLAGS=""
+CFLAGS="$CXXFLAGS"
+CC="ccache gcc"
+CXX="ccache g++"
+export CFLAGS CXXFLAGS CC CXX
+echo "using C(XX)FLAGS: $CXXFLAGS"
+
+exec ./test-builds.sh --verbose --use-config-cache $@
