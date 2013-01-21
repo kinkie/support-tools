@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+use Getopt::Std;
+my %opts;
+getopts('hdt:', \%opt);
+
+$delay=1;
+$print_date=0;
+
+help() if ($opt{h});
+$delay=$opt{t} if ($opt{t});
+$print_date=1 if ($opt{d});
+help() if ($#ARGV < 0);
+
+$last_stat=time;
+$SIG{'ALRM'}=\&stats;
+alarm $delay;
+$lines=0;
+open(IN,$ARGV[0]);
+seek(IN,0,2); #go to EOF
+while (1) {
+	while (<IN>) {
+		$lines++;
+	}
+	select(undef,undef,undef,0.5);
+}
+
+sub stats {
+	my $delta=time-$last_stat;
+	my $lps=$lines/$delta;
+	print scalar localtime;
+	printf " written: %d (%03.0f p.s.)\n", $lines,$lps;
+	#print "$lines ($lps p.s.)\n";
+	$lines=0;
+	alarm $delay;
+	$last_stat=time;
+	$last_lines=$lines;
+}
+
+sub help {
+	print <<_EOF;
+Usage:
+$0 [-t delay] [-d] log-file
+
+tails the specified log-file, printing how many lines were added
+to it during the last interval. -d prints the timestamp.
+_EOF
+	exit 1;
+}
