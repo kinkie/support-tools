@@ -1,9 +1,19 @@
 #!/bin/sh
-
-credentials="XXXX:FIXME"
+helpmsg=<<_EOF
+ configuration file: ~/.jenkins.rc.
+ it's a shell script, must contain two variables setting:
+ credentials=user:password
+ slavename=...
+_EOF
 
 if [ `id -u` -eq 0 ]; then
   exec su jenkins -c "$0 $@"
+fi
+
+if [ ! -e $HOME/.jenkins.rc ]; then
+  . ~/.jenkins.rc
+else
+  echo $helpmsg
 fi
 
 CCACHE_COMPRESS=1
@@ -17,6 +27,6 @@ cd $HOME
 (\
 while sleep 60; do
 	/usr/local/bin/curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
-	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/obsd-51-x86/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
+	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/$slavename/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
 done
 )&
