@@ -1,5 +1,7 @@
 #!/bin/sh
 
+credentials="XXXX:FIXME"
+
 if [ `id -u` -eq 0 ]; then
   exec su jenkins -c "$0 $@"
 fi
@@ -15,6 +17,6 @@ cd $HOME
 (\
 while sleep 60; do
 	/usr/local/bin/curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
-	exec java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/obsd-51-x86/slave-agent.jnlp >start-jenkins.log 2>&1 
+	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/obsd-51-x86/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
 done
 )&
