@@ -15,6 +15,7 @@ if [ -e $HOME/.jenkins.rc ]; then
   . ~/.jenkins.rc
 else
   echo $helpmsg
+  exit 1
 fi
 
 CCACHE_COMPRESS=1
