@@ -4,6 +4,7 @@ helpmsg=<<_EOF
  it's a shell script, must contain two variables setting:
  credentials=user:password
  slavename=...
+ sleeptime=... (optional, default=60)
 _EOF
 
 if [ `id -u` -eq 0 ]; then
@@ -26,6 +27,10 @@ export AUTOCONF_VERSION AUTOMAKE_VERSION
 cd $HOME
 (\
 while sleep 60; do
+  if [ -e $HOME/jenkins.stop ]; then
+    rm $HOME/jenkins.stop
+    exit 0
+  fi
 	/usr/local/bin/curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
 	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/$slavename/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
 done
