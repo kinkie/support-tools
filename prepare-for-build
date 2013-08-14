@@ -1,4 +1,24 @@
 #!/bin/sh
+# args: --force, --build
+# compilers: --clang, --icc
+
+opt=$(getopt --longoptions force,build,clang,icc,no-ccache,help --options fbcinh -- "$@")
+
+if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
+eval set -- "$opt"
+
+while true; do
+  case "$1" in
+    -f|--force) force_bootstrap="yes"; shift;;
+    -b|--build) do_build="yes"; shift;;
+    -c|--clang) CC="clang"; CXX="clang++"; shift;;
+    -i|--icc) CC="icc"; CXX="icpc"; shift;;
+    -n|--no-ccache) ccache="no"; shift;;
+    -h|--help) echo "options: force,build,clang,icc,help"; exit 0;;
+    --) shift; break;;
+    *) echo "internal error"; exit 1;;
+  esac
+done
 
 #export CC="ccache gcc" CXX="ccache g++"
 DISTCHECK_CONFIGURE_FLAGS=" \
@@ -64,11 +84,28 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-pic \
         --with-pthreads \
         --enable-ssl-crtd \
+        "
+
+case "$CC" in
+*clang) ;;
+*)
+DISTCHECK_CONFIGURE_FLAGS="$DISTCHECK_CONFIGURE_FLAGS \
 	--enable-ecap=yes \
 	"
+esac
 
-#    --enable-cpu-profiling \
-test -e ./configure || ./bootstrap.sh
+if [ "x$ccache" != "xno" ]; then
+  CC="ccache $CC"
+  CXX="ccache $CXX"
+fi
+if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
+  ./bootstrap.sh
+fi
+
+export CC CXX
 ./configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info
-#&& make all check
+
+if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
+  make all check
+fi
 

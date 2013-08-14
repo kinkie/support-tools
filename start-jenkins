@@ -5,6 +5,11 @@ helpmsg=<<_EOF
  credentials=user:password
  slavename=...
  sleeptime=... (optional, default=60)
+on BSD:
+  remember to set and export 
+AUTOCONF_VERSION=2.61
+AUTOMAKE_VERSION=1.10
+export AUTOCONF_VERSION AUTOMAKE_VERSION
 _EOF
 
 if [ `id -u` -eq 0 ]; then
@@ -14,16 +19,12 @@ fi
 if [ -e $HOME/.jenkins.rc ]; then
   . ~/.jenkins.rc
 else
-  echo $helpmsg
+  echo "$helpmsg"
   exit 1
 fi
 
 CCACHE_COMPRESS=1
 export CCACHE_COMPRESS
-
-AUTOCONF_VERSION=2.61
-AUTOMAKE_VERSION=1.10
-export AUTOCONF_VERSION AUTOMAKE_VERSION
 
 cd $HOME
 (\
@@ -32,7 +33,7 @@ while sleep 60; do
     rm $HOME/jenkins.stop
     exit 0
   fi
-	/usr/local/bin/curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
+	curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
 	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/$slavename/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
 done
 )&
