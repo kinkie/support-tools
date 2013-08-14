@@ -94,7 +94,7 @@ DISTCHECK_CONFIGURE_FLAGS="$DISTCHECK_CONFIGURE_FLAGS \
 	"
 esac
 
-if [ "x$ccache" != "xno" ]; then
+if [ -n "$CC" -a "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
 fi
@@ -102,7 +102,7 @@ if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
 fi
 
-export CC CXX
+test -n "$CC" && export CC CXX
 ./configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
