@@ -2,7 +2,7 @@
 # args: --force, --build
 # compilers: --clang, --icc
 
-opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help --options fbcinl:h -- "$@")
+opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help,ring --options fbcinl:hr -- "$@")
 
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
@@ -16,6 +16,7 @@ while true; do
     -n|--no-ccache) ccache="no"; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "options: force,build,clang,icc,log:file,help"; exit 0;;
+    -r|--ring) do_ring=true; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -25,7 +26,6 @@ if [ -n $logfile ]; then
   exec 2>&1
 fi
 
-#export CC="ccache gcc" CXX="ccache g++"
 DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-loadable-modules \
         --enable-gnuregex \
@@ -114,3 +114,6 @@ if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
   make all check
 fi
 
+if [ "$do_ring" = "true" ]; then
+  echo -n ""
+fi
