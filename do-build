@@ -2,8 +2,11 @@
 # args: --force, --build
 # compilers: --clang, --icc
 
-opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help,ring --options fbcinl:hr -- "$@")
+read -d '' helpmsg <<_EOF
+options: force, build, clang, icc, no-ccache, log:, ring, help
+_EOF
 
+opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help,ring --options fbcinl:hr -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 
@@ -15,7 +18,7 @@ while true; do
     -i|--icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; shift;;
     -l|--log) logfile="$2" ; shift 2;;
-    -h|--help) echo "options: force,build,clang,icc,log:file,help"; exit 0;;
+    -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
