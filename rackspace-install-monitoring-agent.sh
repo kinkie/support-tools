@@ -40,8 +40,7 @@ case "$release" in
   Fedora_release_19*)
     mode=rpm
     key=linux.asc
-    echo "Version not yet supported, sorry"
-    exit 1
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/fedora-19-x86_64
     ;;
   Debian_7*)
     mode=apt
