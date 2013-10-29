@@ -6,10 +6,13 @@ if [ $(id -u) -ne 0 ]; then
 fi
 
 #redhat / centos / fedora
-if [ -e /etc/redhat-release ] ; then
+if [ -x /usr/bin/lsb_release ]; then
+  release="$(/usr/bin/lsb_release -sd)"
+fi
+if [ -z "$release" -a -e /etc/redhat-release ] ; then
   release=$(sed 's/ /_/g' </etc/redhat-release)
 fi
-if [ -e /etc/debian_version ] ; then
+if [ -z "$release" -a -e /etc/debian_version ] ; then
   release="Debian_$(cat /etc/debian_version)"
 fi
 
@@ -44,6 +47,11 @@ case "$release" in
     mode=apt
     key=linux.asc
     repo=http://stable.packages.cloudmonitoring.rackspace.com/debian-wheezy-x86_64
+    ;;
+  Ubuntu*)
+    mode=apt
+    key=linux.asc
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/ubuntu-$(lsb_release -rs)-$(uname -m)
     ;;
   *) echo "Unsupported OS $release"; exit 1;;
 esac
