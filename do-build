@@ -9,6 +9,9 @@ _EOF
 opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help,ring --options fbcinl:hr -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
+#default
+CC=gcc
+CXX=g++
 
 while true; do
   case "$1" in
@@ -102,7 +105,7 @@ DISTCHECK_CONFIGURE_FLAGS="$DISTCHECK_CONFIGURE_FLAGS \
 	"
 esac
 
-if [ -n "$CC" -a "x$ccache" != "xno" ]; then
+if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
 fi
