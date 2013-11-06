@@ -20,32 +20,37 @@ case "$release" in
   CentOS_release_6*)
     mode=rpm
     key=linux.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/centos-6-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/centos-6-$(uname -m)
     ;;
   CentOS_release_5*)
     mode=rpm
     key=centos-5.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/centos-5-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/centos-5-$(uname -m)
     ;;
   Red_Hat_Enterprise_*_release_5*)
     mode=rpm
     key=redhat-5.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/redhat-5-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/redhat-5-$(uname -m)
     ;;
   Red_Hat_Enterprise_*_release_6*)
     mode=rpm
     key=linux.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/redhat-6-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/redhat-6-$(uname -m)
     ;;
   Fedora_release_19*)
     mode=rpm
     key=linux.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/fedora-19-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/fedora-19-$(uname -m)
+    ;;
+  Debian*sid*)
+    mode=apt
+    key=linux.asc
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/debian-sid-$(uname -m)
     ;;
   Debian_7*)
     mode=apt
     key=linux.asc
-    repo=http://stable.packages.cloudmonitoring.rackspace.com/debian-wheezy-x86_64
+    repo=http://stable.packages.cloudmonitoring.rackspace.com/debian-wheezy-$(uname -m)
     ;;
   Ubuntu*)
     mode=apt
