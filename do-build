@@ -3,10 +3,10 @@
 # compilers: --clang, --icc
 
 read -d '' helpmsg <<_EOF
-options: force, build, clang, icc, no-ccache, log:, ring, help
+options: force, build, clang, icc, no-ccache, log=file, ring, parallel=#, help
 _EOF
 
-opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,help,ring --options fbcinl:hr -- "$@")
+opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,parallel:,help,ring --options fbcinl:p:hr -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -23,6 +23,7 @@ while true; do
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
+    -p|--parallel) parallel="-j $2 "; shift 2;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -117,7 +118,7 @@ test -n "$CC" && export CC CXX
 ./configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
-  make all check
+  make ${parallel} all && make ${parallel} check
 fi
 
 if [ "$do_ring" = "true" ]; then
