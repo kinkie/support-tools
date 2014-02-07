@@ -3,10 +3,11 @@
 # compilers: --clang, --icc
 
 read -d '' helpmsg <<_EOF
-options: force, build, clang, icc, no-ccache, log=file, ring, parallel=#, help
+options: dir, force, build, clang, icc, no-ccache, log=file,
+         ring, parallel=#, help
 _EOF
 
-opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,parallel:,help,ring --options fbcinl:p:hr -- "$@")
+opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,parallel:,help,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -24,6 +25,8 @@ while true; do
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -p|--parallel) parallel="-j $2 "; shift 2;;
+    -d|--dir) builddir="$2 "; shift 2;;
+    --pass) extraargs="$2"; shift 2;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -114,8 +117,17 @@ if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
 fi
 
+if [ -n "$builddir" ]; then
+  if [ ! -d "$builddir" ]; then
+    echo "Creating build dir $builddir"
+    mkdir -p $builddir
+  fi
+  srcdir=$(pwd)
+  cd $builddir
+fi
+
 test -n "$CC" && export CC CXX
-./configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info
+${srcdir:=.}/configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
   make ${parallel} all && make ${parallel} check
