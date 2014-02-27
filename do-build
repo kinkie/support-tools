@@ -99,6 +99,7 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-pic \
         --with-pthreads \
         --enable-ssl-crtd \
+        --disable-arch-native \
         "
 
 case "$CC" in
@@ -127,7 +128,7 @@ if [ -n "$builddir" ]; then
 fi
 
 test -n "$CC" && export CC CXX
-${srcdir:=.}/configure --cache-file=/tmp/config.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
+${srcdir:=.}/configure --cache-file=/tmp/config-${CC}.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
   make ${parallel} all && make ${parallel} check
