@@ -8,5 +8,7 @@ do
 	if [ ! -d "$dir/.bzr" ]; then
 		continue
 	fi
+  echo "*********** starting $dir **********"
 	(cd $dir; bzr update)
+  echo "************* done $dir ************"
 done
