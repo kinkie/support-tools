@@ -681,6 +681,18 @@ document pwstring
 	pwstring s - Prints content, size/length, capacity and ref-count of wstring s
 end
 
+define psbuf
+    if $argc == 0
+        help psbuf
+    else
+        printf "SBuf $arg0.dump()
+    end
+end
+document psbuf
+    Prints SBuf information.
+    Syntax: psbuf <sbuf>
+end
+
 #
 # C++ related beautifiers (optional)
 #
