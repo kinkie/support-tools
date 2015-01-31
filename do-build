@@ -59,7 +59,6 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-cachemgr-hostname \
         --enable-eui \
         --enable-htcp \
-        --enable-ssl \
         --enable-forw-via-db \
         --enable-cache-digests \
         --enable-poll \
@@ -98,7 +97,6 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-large-files \
         --with-pic \
         --with-pthreads \
-        --enable-ssl-crtd \
         --disable-arch-native \
         "
 

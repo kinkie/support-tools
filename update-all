@@ -5,10 +5,14 @@ do
 	if [ ! -d "$dir" ]; then
 		continue
 	fi
-	if [ ! -d "$dir/.bzr" ]; then
-		continue
+	if [ -d "$dir/.bzr" ]; then
+      echo "*********** starting $dir **********"
+      (cd $dir; bzr update)
+      echo "************* done $dir ************"
 	fi
-  echo "*********** starting $dir **********"
-	(cd $dir; bzr update)
-  echo "************* done $dir ************"
+	if [ -d "$dir/.git" ]; then
+      echo "*********** starting $dir **********"
+      (cd $dir; git pull --rebase)
+      echo "************* done $dir ************"
+	fi
 done
