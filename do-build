@@ -2,12 +2,16 @@
 # args: --force, --build
 # compilers: --clang, --icc
 
+#todo: add parameter
+export CFLAGS='-O0 -g'
+export CXXFLAGS='-O0 -g'
+
 read -d '' helpmsg <<_EOF
 options: dir, force, build, clang, icc, no-ccache, log=file,
-         ring, parallel=#, help
+         ring, parallel=#, clean, revno, help
 _EOF
 
-opt=$(getopt --longoptions force,build,clang,icc,no-ccache,log:,parallel:,help,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
+opt=$(getopt --longoptions clean,revno:,force,build,clang,icc,no-ccache,log:,parallel:,help,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -20,13 +24,15 @@ while true; do
     -b|--build) do_build="yes"; shift;;
     -c|--clang) CC="clang"; CXX="clang++"; shift;;
     -i|--icc) CC="icc"; CXX="icpc"; shift;;
-    -n|--no-ccache) ccache="no"; shift;;
+    -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -p|--parallel) parallel="-j $2 "; shift 2;;
     -d|--dir) builddir="$2 "; shift 2;;
     --pass) extraargs="$2"; shift 2;;
+    --clean) do_clean=true; shift;;
+    --revno) revno="$2"; shift 2;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -59,6 +65,8 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-cachemgr-hostname \
         --enable-eui \
         --enable-htcp \
+        --enable-ssl \
+        --with-openssl \
         --enable-forw-via-db \
         --enable-cache-digests \
         --enable-poll \
@@ -104,7 +112,7 @@ case "$CC" in
 *clang) ;;
 *)
 DISTCHECK_CONFIGURE_FLAGS="$DISTCHECK_CONFIGURE_FLAGS \
-	--enable-ecap=yes \
+	--enable-ecap=yes  \
 	"
 esac
 
@@ -112,6 +120,25 @@ if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
 fi
+
+#clean
+if [ -n "$do_clean" -a -f test-builds.sh ]; then
+  if test -d btlayer-00-bootstrap; then
+    chmod -R u+w btlayer*; rm -rf btlayer*
+  fi
+  touch foo.o
+  find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
+  for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
+    test -d $dir && rm  -rf $dir
+  done
+  bzr clean-tree --force
+fi
+
+if [ -n "$revno" ]; then
+  echo "Switching to revision $revno"
+  bzr revert -r$revno
+fi
+
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
 fi
