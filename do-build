@@ -2,16 +2,12 @@
 # args: --force, --build
 # compilers: --clang, --icc
 
-#todo: add parameter
-export CFLAGS='-O0 -g'
-export CXXFLAGS='-O0 -g'
-
 read -d '' helpmsg <<_EOF
 options: dir, force, build, clang, icc, no-ccache, log=file,
-         ring, parallel=#, clean, revno, help
+         ring, parallel=#, clean, revno, no-opt, ecap, help
 _EOF
 
-opt=$(getopt --longoptions clean,revno:,force,build,clang,icc,no-ccache,log:,parallel:,help,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
+opt=$(getopt --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -20,6 +16,11 @@ CXX=g++
 
 while true; do
   case "$1" in
+    --ecap) ECAP_CONFIGURE_FLAGS="--enable-ecap=yes"; shift;;
+    --no-opt)
+      export CFLAGS="$CFLAGS -O0 -g"
+      export CXXFLAGS="$CXXFLAGS -O0 -g"
+      shift ;;
     -f|--force) force_bootstrap="yes"; shift;;
     -b|--build) do_build="yes"; shift;;
     -c|--clang) CC="clang"; CXX="clang++"; shift;;
@@ -50,7 +51,6 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-debug-cbdata \
         --enable-xmalloc-statistics \
         --enable-async-io \
-        --enable-storeio \
         --enable-disk-io \
         --enable-removal-policies \
         --enable-icmp \
@@ -108,14 +108,6 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --disable-arch-native \
         "
 
-case "$CC" in
-*clang) ;;
-*)
-DISTCHECK_CONFIGURE_FLAGS="$DISTCHECK_CONFIGURE_FLAGS \
-	--enable-ecap=yes  \
-	"
-esac
-
 if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
@@ -139,6 +131,13 @@ if [ -n "$revno" ]; then
   bzr revert -r$revno
 fi
 
+#macos hacks
+if [ "x$(uname -s)" = "xDarwin" ]; then
+  export CPPFLAGS="$CPPFLAGS -I/opt/local/include"
+  export LDFLAGS="$LDFLAGS -lresolv"
+  export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
+fi
+
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
 fi
@@ -153,7 +152,7 @@ if [ -n "$builddir" ]; then
 fi
 
 test -n "$CC" && export CC CXX
-${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
+${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
   make ${parallel} all && make ${parallel} check
