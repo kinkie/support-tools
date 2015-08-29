@@ -134,7 +134,7 @@ fi
 #macos hacks
 if [ "x$(uname -s)" = "xDarwin" ]; then
   export CPPFLAGS="$CPPFLAGS -I/opt/local/include"
-  export LDFLAGS="$LDFLAGS -lresolv"
+  export LDFLAGS="$LDFLAGS -lresolv -lssl -lcrypto"
   export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
 fi
 
