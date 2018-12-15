@@ -60,11 +60,10 @@ if [ -n "$statefile" ]; then
 fi
 
 
-    
-echo "backing up${ilabel} ${mountpoints:-$mountpoints_detected}" >&2
+echo -n "backing up${ilabel} " >&2
+echo ${mountpoints:=$mountpoints_detected} >&2
 
 
-#sanepath=$(echo $dir|sed 's/^\/$/\/root/;s/^\///;s/\//-/g;')
 tar -c -C / --ignore-case -f - -j --one-file-system --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental ${mountpoints:-$mountpoints_detected}
 
 if [ -n "$rm_tmp_state" -a -f "$statefile" ]; then
