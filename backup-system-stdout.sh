@@ -83,8 +83,8 @@ test -d "$bkroot" || mkdir -p "$bkroot"
 for fs in ${mountpoints}
 do
     if is_btrfs $fs; then
-        test -d $fs/$snap && btrfs subvolume delete $fs/$snap
-        btrfs subvolume snapshot $fs $fs/$snap
+        test -d $fs/$snap && btrfs subvolume delete $fs/$snap >&2
+        btrfs subvolume snapshot $fs $fs/$snap >&2
         mount --bind $fs/$snap $bkroot/$fs
     else
         mount --bind $fs $bkroot/$fs
@@ -101,5 +101,5 @@ fi
 for fs in ${mountpoints_detected_rev}
 do
     umount $bkroot/$fs
-    test -d $fs/$snap && btrfs subvolume delete $fs/$snap
+    test -d $fs/$snap && btrfs subvolume delete $fs/$snap >&2
 done
