@@ -7,6 +7,8 @@ test -f $0.local && . $0.local
 cleanstate=""
 rm_tmp_state=""
 exclusions=${exclusions:-}
+snap="bksnap"
+bkroot="/mnt/bkroot"
 
 statefile=${statefile:-/usr/local/lib/backup.state}
 TEMP=`/usr/bin/getopt -o h --long help,novm -- "$@"`
@@ -14,7 +16,7 @@ if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true; do
 	case "$1" in
-	--help|-h) echo "code: "; cat $0; exit 1;;
+	--help|-h) echo "Use the source: $0"; exit 1;;
 	--novm) exclusions="--exclude='*.img' --exclude='*.qcow2'"; shift;;
 	--full) statefile=""; shift ;;
     --cleanstate) cleanstate=yes; shift ;;
@@ -23,7 +25,18 @@ while true; do
 	esac
 done
 
-mountpoints_detected=$(mount | grep -e 'type \(ext3\|ext2\|ext4\|reiserfs\|xfs\|ecryptfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' )
+# sort by string length, short to long
+lsort() {
+    awk '{ print length, $0 }' | sort -n -s | cut -d" " -f2-
+}
+# argument: filesystem mountpoint. Returns 0 if fs is btrfs, 1 otherwise
+is_btrfs() {
+    mount | grep -q " on $1 type btrfs "
+}
+
+# TODO: exclude /
+mountpoints_detected=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' | lsort)
+mountpoints_detected_rev=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' | lsort | tac)
 hostname=$(hostname -s)
 rundir=$(dirname $0)
 date=$(date +%Y.%m.%d)
@@ -63,10 +76,30 @@ fi
 echo -n "backing up${ilabel} " >&2
 echo ${mountpoints:=$mountpoints_detected} >&2
 
+# 
+test -d "$bkroot" || mkdir -p "$bkroot"
 
-tar -c -C / --ignore-case -f - -j --one-file-system --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental ${mountpoints:-$mountpoints_detected}
+# for btrfs, create snapshot and mount
+for fs in ${mountpoints}
+do
+    if is_btrfs $fs; then
+        test -d $fs/$snap && btrfs subvolume delete $fs/$snap
+        btrfs subvolume snapshot $fs $fs/$snap
+        mount --bind $fs/$snap $bkroot/$fs
+    else
+        mount --bind $fs $bkroot/$fs
+    fi
+done
+
+tar -c -C $bkroot --ignore-case -f - -j --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental .
 
 if [ -n "$rm_tmp_state" -a -f "$statefile" ]; then
     echo "rm stale $statefile" >&2
     rm "$statefile"
 fi
+
+for fs in ${mountpoints_detected_rev}
+do
+    umount $bkroot/$fs
+    test -d $fs/$snap && btrfs subvolume delete $fs/$snap
+done
