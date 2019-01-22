@@ -35,8 +35,8 @@ is_btrfs() {
 }
 
 # TODO: exclude /
-mountpoints_detected=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' | lsort)
-mountpoints_detected_rev=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' | lsort | tac)
+mountpoints_detected=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' -e "^/$snap" | lsort)
+mountpoints_detected_rev=$(mount | grep -e 'type \(ext\|btrfs\)'|awk '{print $3}'|grep -v -e '^/media' -e '^/mnt/' -e '/tmp' -e "^/$snap" | lsort | tac)
 hostname=$(hostname -s)
 rundir=$(dirname $0)
 date=$(date +%Y.%m.%d)
@@ -91,7 +91,7 @@ do
     fi
 done
 
-tar -c -C $bkroot --ignore-case -f - -j --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental .
+(cd $bkroot; tar -c --ignore-case -f - -j --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental *)
 
 if [ -n "$rm_tmp_state" -a -f "$statefile" ]; then
     echo "rm stale $statefile" >&2
