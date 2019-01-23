@@ -70,7 +70,7 @@ echo ${mountpoints:=$mountpoints_detected} >&2
 
 # 
 
-(tar -C / -c --ignore-case -f /dev/null -v --totals --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental --one-file-system $mountpoints)
+tar -C / -c --ignore-case -f - -v --totals --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental --one-file-system $mountpoints
 
 if [ -n "$rm_tmp_state" -a -f "$statefile.saved" ]; then
     echo "mv $statefile.saved $statefile" >&2
