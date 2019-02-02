@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 set -euo pipefail
 
 test -f $0.local && . $0.local
@@ -70,7 +70,7 @@ echo ${mountpoints:=$mountpoints_detected} >&2
 
 # 
 
-tar -C / -c --ignore-case -f - -v --totals --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental --one-file-system $mountpoints
+tar -C / -c -j --one-file-system --ignore-case -f - --totals --label="Backup ${hostname} ${date}${ilabel}" $exclusions $incremental $mountpoints
 
 if [ -n "$rm_tmp_state" -a -f "$statefile.saved" ]; then
     echo "mv $statefile.saved $statefile" >&2
