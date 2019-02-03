@@ -1,3 +1,0 @@
-#!/bin/sh
-
-find $HOME/workspace -type d -exec chmod 755 "{}" \;
