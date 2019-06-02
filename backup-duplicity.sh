@@ -11,6 +11,7 @@ case $1 in
 esac
 
 duplicity $1 \
+    --ssh-backend pexpect \
     --volsize 200 \
     --exclude /proc --exclude /sys \
     --exclude /var/log \
