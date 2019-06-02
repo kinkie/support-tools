@@ -10,7 +10,7 @@ case $1 in
 	*) echo "$0 full|incr"; exit 1;;
 esac
 
-duplicity $1 \ 
+duplicity $1 \
     --volsize 200 \
     --exclude /proc --exclude /sys \
     --exclude /var/log \
