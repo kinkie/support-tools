@@ -18,6 +18,6 @@ duplicity $1 \
     --exclude-if-present CACHEDIR.TAG \
     --progress \
     --ssl-no-check-certificate \
-    --encrypt-sign-key C68E4F18 \
+    --encrypt-key C68E4F18 \
     / \
     $2/$(hostname -s)
