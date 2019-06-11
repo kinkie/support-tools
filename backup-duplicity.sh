@@ -13,8 +13,10 @@ esac
 duplicity $1 \
     --volsize 200 \
     --exclude /proc --exclude /sys \
-    --exclude /var/log \
+    --exclude /var/log --exclude /mnt \
     --exclude-regexp '.*(btlayer-).*' \
     --exclude-if-present CACHEDIR.TAG \
-    --no-encryption --progress --ssh-askpass \
-    / sftp://$2/$(hostname -s)
+    --no-encryption \
+    --progress \
+    / \
+    $2/$(hostname -s)
