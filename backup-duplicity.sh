@@ -16,7 +16,8 @@ duplicity $1 \
     --exclude /var/log --exclude /mnt \
     --exclude-regexp '.*(btlayer-).*' \
     --exclude-if-present CACHEDIR.TAG \
-    --no-encryption \
     --progress \
+    --ssl-no-check-certificate \
+    --encrypt-sign-key C68E4F18 \
     / \
     $2/$(hostname -s)
