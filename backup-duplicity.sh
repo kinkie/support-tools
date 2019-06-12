@@ -19,5 +19,7 @@ duplicity $1 \
     --progress \
     --ssl-no-check-certificate \
     --encrypt-key C68E4F18 \
+    --ssh-backend pexpect \
+    $@ \
     / \
     $2/$(hostname -s)
