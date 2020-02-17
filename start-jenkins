@@ -26,14 +26,19 @@ fi
 CCACHE_COMPRESS=1
 export CCACHE_COMPRESS
 
+do_start_jenkins() {
+	test -e ~/.jenkins.rc && . ~/.jenkins.rc
+	curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar && \
+	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/$slavename/slave-agent.jnlp -secret $secret >start-jenkins.log 2>&1 
+}
+
 cd $HOME
 (\
-while sleep 60; do
+while do_start_jenkins; do
   if [ -e $HOME/jenkins.stop ]; then
     rm $HOME/jenkins.stop
     exit 0
   fi
-	curl http://build.squid-cache.org/jnlpJars/slave.jar >slave.jar
-	java -jar slave.jar -jnlpUrl http://build.squid-cache.org/computer/$slavename/slave-agent.jnlp -jnlpCredentials $credentials >start-jenkins.log 2>&1 
+  sleep 60
 done
 )&
