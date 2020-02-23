@@ -1,0 +1,37 @@
+#!/bin/bash -x
+
+COMPILER=${COMPILER:-gcc}
+echo "revno: $GIT_COMMIT"
+LANG=${LANG:-C}
+
+case $1 in
+	gcc|clang|icc) COMPILER=$1; shift ;;
+	*) ;;
+esac
+
+case "$COMPILER" in
+  gcc) CC="gcc"; CXX="g++";;
+  clang) CC="clang"; CXX="clang++";;
+  icc) CC="icc"; CXX="icpc";;
+  *) echo "Unknown COMPILER set, aborting"; exit 1;;
+esac
+
+for cc in $(type -path ccache) /usr/bin/ccache /usr/local/bin/ccache
+do
+	test -x $cc && ccache_bin="$cc "
+done
+
+if [ "$COMPILER" != "icc" ]
+then
+   CC="${ccache_bin}${CC}"
+   CXX="${ccache_bin}${CXX}"
+fi
+export CC CXX
+
+# temporary hack on tumbleweed
+if lsb_release -d | grep -qi "openSUSE Tumbleweed" ; then
+        ./boostrap.sh
+        (cd libltdl; autoreconf -fi)
+fi
+
+time ./test-builds.sh --verbose --use-config-cache --cleanup $tests
