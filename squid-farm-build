@@ -5,13 +5,15 @@ echo "revno: $GIT_COMMIT"
 LANG=${LANG:-C}
 
 case $1 in
-	gcc|clang|icc) COMPILER=$1; shift ;;
+	gcc*|clang*|icc) COMPILER=$1; shift ;;
 	*) ;;
 esac
 
 case "$COMPILER" in
   gcc) CC="gcc"; CXX="g++";;
+  gcc-*) CC="gcc-${COMPILER#gcc-}"; CXX="g++-${COMPILER#gcc-}";;
   clang) CC="clang"; CXX="clang++";;
+  clang-*) CC="clang-${COMPILER#clang-}"; CXX="clang++-${COMPILER#clang-}";;
   icc) CC="icc"; CXX="icpc";;
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
 esac
@@ -39,7 +41,7 @@ for extrapath in \
 	/home/jenkins/bin \
 	/opt/rh/devtoolset-2/root/usr/bin
 do
-	test -4 "$extrapath" && export PATH="$extrapath:$PATH"
+	test -d "$extrapath" && export PATH="$extrapath:$PATH"
 done
 
 time ./test-builds.sh $@
