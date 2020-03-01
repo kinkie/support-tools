@@ -1,0 +1,45 @@
+#!/bin/bash -xl
+
+COMPILER=${COMPILER:-gcc}
+echo "revno: $GIT_COMMIT"
+LANG=${LANG:-C}
+
+case $1 in
+	gcc|clang|icc) COMPILER=$1; shift ;;
+	*) ;;
+esac
+
+case "$COMPILER" in
+  gcc) CC="gcc"; CXX="g++";;
+  clang) CC="clang"; CXX="clang++";;
+  icc) CC="icc"; CXX="icpc";;
+  *) echo "Unknown COMPILER set, aborting"; exit 1;;
+esac
+
+for cc in $(type -path ccache) /usr/bin/ccache /usr/local/bin/ccache
+do
+	test -x $cc && ccache_bin="$cc "
+done
+
+if [ "$COMPILER" != "icc" ]
+then
+   CC="${ccache_bin}${CC}"
+   CXX="${ccache_bin}${CXX}"
+fi
+export CC CXX
+
+# temporary hack on tumbleweed
+if lsb_release -d | grep -qi "openSUSE Tumbleweed" ; then
+        ./bootstrap.sh
+        (cd libltdl; autoreconf -fi)
+fi
+
+# custom command paths 
+for extrapath in \
+	/home/jenkins/bin \
+	/opt/rh/devtoolset-2/root/usr/bin
+do
+	test -4 "$extrapath" && export PATH="$extrapath:$PATH"
+done
+
+time ./test-builds.sh $@
