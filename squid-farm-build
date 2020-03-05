@@ -5,15 +5,13 @@ echo "revno: $GIT_COMMIT"
 LANG=${LANG:-C}
 
 case $1 in
-	gcc*|clang*|icc) COMPILER=$1; shift ;;
+	gcc*|clang*|icc*) COMPILER=$1; shift ;;
 	*) ;;
 esac
 
 case "$COMPILER" in
   gcc) CC="gcc"; CXX="g++";;
-  gcc-*) CC="gcc-${COMPILER#gcc-}"; CXX="g++-${COMPILER#gcc-}";;
   clang) CC="clang"; CXX="clang++";;
-  clang-*) CC="clang-${COMPILER#clang-}"; CXX="clang++-${COMPILER#clang-}";;
   icc) CC="icc"; CXX="icpc";;
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
 esac
@@ -30,12 +28,6 @@ then
 fi
 export CC CXX
 
-# temporary hack on tumbleweed
-if lsb_release -d | grep -qi "openSUSE Tumbleweed" ; then
-        ./bootstrap.sh
-        (cd libltdl; autoreconf -fi)
-fi
-
 # custom command paths 
 for extrapath in \
 	/home/jenkins/bin \
@@ -45,3 +37,10 @@ do
 done
 
 time ./test-builds.sh $@
+result=$?
+if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
+	(cd libltdl; autoreconf -fi)
+	time ./test-builds.sh $@
+else
+	exit $result
+fi
