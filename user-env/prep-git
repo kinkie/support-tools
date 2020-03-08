@@ -4,3 +4,4 @@ git config --global alias.ci commit
 git config --global alias.st status
 git config --global alias.rem 'remote -v'
 git config --global alias.vacuum 'clean -fdx'
+git config --global alias.sl 'log --oneline --graph'
