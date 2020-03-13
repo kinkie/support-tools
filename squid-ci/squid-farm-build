@@ -4,24 +4,32 @@ COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
 LANG=${LANG:-C}
 
+while getopts "hj:n-" optchar; do
+  case "${optchar}" in
+    j) export pjobs="-j${OPTARG}" ;;
+    n) no_ccache=true ;;
+    -) break ;;
+  esac
+done
+shift $((OPTIND -1))
+
 case $1 in
-	gcc*|clang*|icc*) COMPILER=$1; shift ;;
-	*) ;;
+  gcc*|clang*|icc*) COMPILER=$1; shift ;;
 esac
 
 case "$COMPILER" in
-  gcc) CC="gcc"; CXX="g++";;
-  clang) CC="clang"; CXX="clang++";;
+  gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
+  clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
   icc) CC="icc"; CXX="icpc";;
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
 esac
 
 for cc in $(type -path ccache) /usr/bin/ccache /usr/local/bin/ccache
 do
-	test -x $cc && ccache_bin="$cc "
+  test -x $cc && ccache_bin="$cc "
 done
 
-if [ "$COMPILER" != "icc" ]
+if [ "$COMPILER" != "icc" -a -z "${no_ccache}" ]
 then
    CC="${ccache_bin}${CC}"
    CXX="${ccache_bin}${CXX}"
@@ -30,17 +38,19 @@ export CC CXX
 
 # custom command paths 
 for extrapath in \
-	/home/jenkins/bin \
-	/opt/rh/devtoolset-2/root/usr/bin
+  /home/jenkins/bin \
+  /opt/rh/devtoolset-2/root/usr/bin
 do
-	test -d "$extrapath" && export PATH="$extrapath:$PATH"
+  test -d "$extrapath" && export PATH="$extrapath:$PATH"
 done
 
-time ./test-builds.sh $@
+echo "***** Start time: $(date) *****"
+./test-builds.sh $@
 result=$?
 if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
-	(cd libltdl; autoreconf -fi)
-	time ./test-builds.sh $@
+  (cd libltdl; autoreconf -fi)
+  time ./test-builds.sh $@
 else
-	exit $result
+  exit $result
 fi
+echo "***** End time: $(date) *****"
