@@ -1,0 +1,68 @@
+#!/bin/bash
+basedir=~/docker-images
+
+read -r -d '' help <<EOF
+param: os name. Will run bash in squidcache/buildfarm:<arch>-<os>
+	with hostname d-<os>, container name i-<os> interactively
+	removing it by default.
+	persistent state dir in ~/docker-images/homedir or if it doesn't
+	exits ~/docker-images/<os>
+args: --root: run as root
+	--no-rm: don't remove the container after running
+	--preclean
+	--ls: list images
+EOF
+
+if [ $# -le 0 ]; then
+	echo $help
+	exit 1
+fi
+
+list_images() {
+	docker images | \
+	awk '/squidcache\/buildfarm/ {print $2}' |\
+	sed "s/$(uname -m)-//" | \
+	sort | \
+	xargs echo | \
+	fold -s
+}
+
+while [ $# -gt 0 ]; do
+case $1 in
+	--root) uid="0"; shift ;;
+	--no-rm) norm="true"; shift;;
+	--preclean) preclean="true"; shift ;;
+	--ls) list_images; exit 0;;
+	*) break ;;
+esac
+done
+	
+os=${1%/}
+arch=$(uname -m)
+shift
+
+imagename="squidcache/buildfarm:${arch}-${os}"
+containername=i-${os}
+hostname=d-${os}
+if [ -d "$basedir/homedir" ]; then
+	shareddir="$basedir/homedir"
+elif [ -d "$basedir/${os}" ]; then
+	shareddir="$basedir/${os}"
+else
+	echo "no shared dir"
+	exit 1
+fi
+
+test -n "${preclean}" && docker rm ${containername}
+test -z "${norm}" && parms="$parms --rm"
+parms="$parms -u ${uid:-$(id -u jenkins)} -w /home/jenkins"
+
+docker run -i -t -h "$hostname" --name="$containername" --volume=${shareddir}:/home/jenkins $parms ${imagename} ${@:-/bin/bash}
+containerid=$(docker ps -a | fgrep ${containername} | cut -f1 -d" "| tail -n +1 | tail -1)
+
+cat <<EOF
+Useful commands:
+docker ps -l : check last run image
+docker rm ${containername} : remove leftover image
+docker kill ${containername} : kill currently running jenkins-related instance
+EOF
