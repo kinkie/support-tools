@@ -1,8 +1,8 @@
-#!/bin/bash -xl
+#!/bin/bash -l
 
 COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
-LANG=${LANG:-C}
+export LANG=${LANG:-C}
 
 while getopts "hj:n-" optchar; do
   case "${optchar}" in
