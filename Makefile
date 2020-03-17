@@ -30,5 +30,5 @@ clean-images:
 	docker image prune -f
 
 help:
-	@echo "possible targets: list, all, clean, clean-images"
+	@echo "possible targets: list, all, clean, clean-images, push"
 	@echo "                  $(TARGETS)"
