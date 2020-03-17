@@ -1,7 +1,11 @@
-TARGETS=$(sort $(patsubst %-light,%,$(patsubst %/,%,$(dir $(wildcard */Dockerfile)))))
+TARGETS:=$(sort $(patsubst %-light,%,$(patsubst %/,%,$(dir $(wildcard */Dockerfile)))))
 .PHONY: $(TARGETS)
-ARM_BLACKLIST=centos-6
-CPU=$(shell uname -m)
+ARM_BLACKLIST:=centos-6 opensuse-tumbleweed
+CPU:=$(shell uname -m)
+
+ifeq ($(CPU),armv7l)
+TARGETS:=$(filter-out $(ARM_BLACKLIST),$(TARGETS))
+endif
 
 default: help
 
