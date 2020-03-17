@@ -44,6 +44,12 @@ do
   test -d "$extrapath" && export PATH="$extrapath:$PATH"
 done
 
+# cache file . will be ignored unless we received as argument --aggressively-use-config-cache
+config_cache_dir=$HOME/lib/config-cache
+test -d $config_cache_dir || mkdir -p $config_cache_dir
+cache_file=$config_cache_dir/config-$(uname -m)-${OS:-generic}-${COMPILER}.cache
+export cache_file
+
 echo "***** Start time: $(date) *****"
 ./test-builds.sh $@
 result=$?
