@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # args: --force, --build
 # compilers: --clang, --icc
 
@@ -6,8 +6,9 @@ read -d '' helpmsg <<_EOF
 options: dir, force, build, clang, icc, no-ccache, log=file,
          ring, parallel=#, clean, revno, no-opt, ecap, help
 _EOF
+test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(getopt --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -115,20 +116,17 @@ fi
 
 #clean
 if [ -n "$do_clean" -a -f test-builds.sh ]; then
-  if test -d btlayer-00-bootstrap; then
-    chmod -R u+w btlayer*; rm -rf btlayer*
-  fi
   touch foo.o
   find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
   for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
     test -d $dir && rm  -rf $dir
   done
-  bzr clean-tree --force
+  git clean -fxd
 fi
 
 if [ -n "$revno" ]; then
   echo "Switching to revision $revno"
-  bzr revert -r$revno
+  git checkout -r$revno
 fi
 
 #macos hacks
@@ -140,6 +138,7 @@ fi
 
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
+    (cd libltdl; autoreconf -fi)
 fi
 
 if [ -n "$builddir" ]; then
