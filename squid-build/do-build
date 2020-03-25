@@ -8,7 +8,7 @@ options: dir, force, build, clang, icc, no-ccache, log=file,
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler: --options fbc:inl:j:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -24,13 +24,14 @@ while true; do
       shift ;;
     -f|--force) force_bootstrap="yes"; shift;;
     -b|--build) do_build="yes"; shift;;
-    -c|--clang) CC="clang"; CXX="clang++"; shift;;
+    -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
+    --clang) CC="clang"; CXX="clang++"; shift;;
     -i|--icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -p|--parallel) parallel="-j $2 "; shift 2;;
+    -j|--parallel) parallel="-j $2 "; shift 2;;
     -d|--dir) builddir="$2 "; shift 2;;
     --pass) extraargs="$2"; shift 2;;
     --clean) do_clean=true; shift;;
