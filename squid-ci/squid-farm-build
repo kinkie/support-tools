@@ -1,4 +1,4 @@
-#!/usr/bin/env -S bash -l
+#!/bin/bash -l
 
 COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
