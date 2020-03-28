@@ -6,3 +6,11 @@ git config --global alias.st status
 git config --global alias.rem 'remote -v'
 git config --global alias.vacuum 'clean -fdx'
 git config --global alias.sl 'log --oneline --graph'
+
+if [ -f $HOME/.vimrc ]; then
+    echo "vimrc already present, manual merge please"
+else
+    cp "`dirname $0`/vimrc" $HOME/.vimrc
+fi
+
+
