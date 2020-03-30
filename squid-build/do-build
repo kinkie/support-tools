@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # args: --force, --build
 # compilers: --clang, --icc
 
@@ -6,13 +6,14 @@ read -d '' helpmsg <<_EOF
 options: dir, force, build, clang, icc, no-ccache, log=file,
          ring, parallel=#, clean, revno, no-opt, ecap, help
 _EOF
+test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(getopt --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir: --options fbcinl:p:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler: --options fbc:inl:j:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
-CC=gcc
-CXX=g++
+CC=${CC:-gcc}
+CXX=${CXX:-g++}
 
 while true; do
   case "$1" in
@@ -23,13 +24,14 @@ while true; do
       shift ;;
     -f|--force) force_bootstrap="yes"; shift;;
     -b|--build) do_build="yes"; shift;;
-    -c|--clang) CC="clang"; CXX="clang++"; shift;;
+    -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
+    --clang) CC="clang"; CXX="clang++"; shift;;
     -i|--icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -p|--parallel) parallel="-j $2 "; shift 2;;
+    -j|--parallel) parallel="-j $2 "; shift 2;;
     -d|--dir) builddir="$2 "; shift 2;;
     --pass) extraargs="$2"; shift 2;;
     --clean) do_clean=true; shift;;
@@ -65,8 +67,7 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-cachemgr-hostname \
         --enable-eui \
         --enable-htcp \
-        --enable-ssl \
-        --with-openssl \
+        ${BUILD_WITH_SSL:- --enable-ssl --with-openssl} \
         --enable-forw-via-db \
         --enable-cache-digests \
         --enable-poll \
@@ -115,31 +116,35 @@ fi
 
 #clean
 if [ -n "$do_clean" -a -f test-builds.sh ]; then
-  if test -d btlayer-00-bootstrap; then
-    chmod -R u+w btlayer*; rm -rf btlayer*
-  fi
   touch foo.o
   find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
   for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
     test -d $dir && rm  -rf $dir
   done
-  bzr clean-tree --force
+  git clean -fxd
 fi
 
 if [ -n "$revno" ]; then
   echo "Switching to revision $revno"
-  bzr revert -r$revno
+  git checkout -r$revno
 fi
 
 #macos hacks
 if [ "x$(uname -s)" = "xDarwin" ]; then
-  export CPPFLAGS="$CPPFLAGS -I/opt/local/include"
-  export LDFLAGS="$LDFLAGS -lresolv -lssl -lcrypto"
+  export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/openssl/include -I/usr/local/include"
+  export CXXFLAGS="$CXXFLAGS -Wno-deprecated-declarations"
+  export LDFLAGS="$LDFLAGS -L/usr/local/lib -L/usr/local/opt/openssl/lib -lresolv -lssl -lcrypto"
   export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
+  if [ -d /usr/local/opt/openldap ]; then
+      export LDFLAGS="${LDFLAGS} -L/usr/local/opt/openldap/lib"
+      export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/openldap/include"
+  fi
+  # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
   ./bootstrap.sh
+    (cd libltdl; autoreconf -fi)
 fi
 
 if [ -n "$builddir" ]; then
