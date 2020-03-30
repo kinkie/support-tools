@@ -6,3 +6,5 @@ git config --global alias.st status
 git config --global alias.rem 'remote -v'
 git config --global alias.vacuum 'clean -fdx'
 git config --global alias.sl 'log --oneline --graph'
+
+test -n "`which vim`" && git config --global core.editor vim
