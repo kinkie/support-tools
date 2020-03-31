@@ -51,11 +51,11 @@ cache_file=$config_cache_dir/config-$(uname -m)-${OS:-${HOSTNAME:-generic}}-${CO
 export cache_file
 
 echo "***** Start time: $(date) *****"
-nice time ./test-builds.sh $@
+./test-builds.sh $@
 result=$?
 if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
   (cd libltdl; autoreconf -fi)
-  nice time ./test-builds.sh $@
+  ./test-builds.sh $@
 else
   exit $result
 fi
