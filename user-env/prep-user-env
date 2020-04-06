@@ -1,11 +1,10 @@
 #!/bin/sh
 
-git config --global alias.ci commit
-git config --global alias.co checkout
-git config --global alias.st status
-git config --global alias.rem 'remote -v'
-git config --global alias.vacuum 'clean -fdx'
-git config --global alias.sl 'log --oneline --graph'
+if [ -f $HOME/.gitconfig ]; then
+    echo "gitconfig already present, manual merge please"
+else
+    cp "`dirname $0`/gitconfig" $HOME/.gitconfig
+fi
 test -n "`which vim`" && git config --global core.editor vim
 
 if [ -f $HOME/.vimrc ]; then
