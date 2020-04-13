@@ -10,8 +10,7 @@ input() {
 	test -n "${!var}" && return
 	echo -n "$2: "
 	read $var
-	export "${!var}"
-	echo "read: ${!var}"
+	export "${var}"
 	unset var
 }
 
