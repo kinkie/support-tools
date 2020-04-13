@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+# local settings for 
+# HOSTDIR BASEDIR FTP_PASSWORD PASSPHRASE DUPLICITY DUPLICITY_OPTIONS
+test -f ~/.backup.rc && . ~/.backup.rc
+
+# args: variable name and prompt
+input() {
+	var=$1
+	test -n "${!var}" && return
+	echo -n "$2: "
+	read $var
+	export "${!var}"
+	echo "read: ${!var}"
+	unset var
+}
+
+export HOSTDIR=`hostname -s`
+input BASEDIR "backup location"
+input FTP_PASSWORD "FTP password"
+input PASSPHRASE "Backup passphrase"
+duplicity_options="\
+	--volsize 200 \
+	--exclude /proc --exclude /sys \
+	--exclude /var/log --exclude /mnt \
+	--exclude /tmp --exclude /var/tmp \
+	--exclude /dev --exclude /run \
+	--exclude /var/lib/lxcfs \
+	--exclude /var/lib/docker/overlay2 \
+	--exclude-if-present CACHEDIR.TAG \
+	--ssl-no-check-certificate \
+	--progress \
+"
+
+# exec backup-duplicity.sh $1 lftp+sftp://kinkie@nas.kinkie.it:5022/z-bak
+duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} --full-if-older-than 6M / "${BASEDIR}/${HOSTDIR}"
+duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} remove-older-than 6M "${BASEDIR}/${HOSTDIR}"
