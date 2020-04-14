@@ -18,18 +18,26 @@ export HOSTDIR=`hostname -s`
 input BASEDIR "backup location"
 input FTP_PASSWORD "FTP password"
 input PASSPHRASE "Backup passphrase"
-duplicity_options="\
+include_file=`mktemp`
+cat >"${include_file}" <<_EOF
+- /proc
+- /sys
+- /var/log
+- /mnt
+- /tmp
+- /var/tmp
+- /dev
+- /run
+- /var/lib/lxcfs
+- /var/lib/docker/overlay2
+- /root/.cache
+- /home/**/.cache
+- **/.ccache
+- **/btlayer-*
+_EOF
+duplicity_options="
     --volsize 200 \
-    --exclude /proc --exclude /sys \
-    --exclude /var/log --exclude /mnt \
-    --exclude /tmp --exclude /var/tmp \
-    --exclude /dev --exclude /run \
-    --exclude /var/lib/lxcfs \
-    --exclude /var/lib/docker/overlay2 \
-    --exclude /root/.cache \
-    --exclude /home/**/.cache \
-    --exclude **/.ccache \
-    --exclude **/btlayer-* \
+    --include-filelist "${include_file}"
     --exclude-if-present CACHEDIR.TAG \
     --ssl-no-check-certificate \
     --progress \
@@ -37,5 +45,7 @@ duplicity_options="\
 
 # todo: detect and automatically exclude non-data filesystems
 
-duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} --full-if-older-than 6M / "${BASEDIR}/${HOSTDIR}"
+duplicity "${duplicity_options}" ${DUPLICITY_OPTIONS} --full-if-older-than 6M / "${BASEDIR}/${HOSTDIR}"
 duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} remove-older-than 6M "${BASEDIR}/${HOSTDIR}"
+
+rm "${include_file}"
