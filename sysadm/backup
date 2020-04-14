@@ -35,7 +35,7 @@ cat >"${include_file}" <<_EOF
 - **/.ccache
 - **/btlayer-*
 _EOF
-duplicity_options="
+duplicity_options="\
     --volsize 200 \
     --include-filelist "${include_file}"
     --exclude-if-present CACHEDIR.TAG \
