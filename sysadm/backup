@@ -37,7 +37,7 @@ cat >"${include_file}" <<_EOF
 _EOF
 duplicity_options="\
     --volsize 200 \
-    --include-filelist "${include_file}"
+    --include-filelist "${include_file}" \
     --exclude-if-present CACHEDIR.TAG \
     --ssl-no-check-certificate \
     --progress \
