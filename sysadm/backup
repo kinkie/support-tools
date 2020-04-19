@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+# local settings for 
+# HOSTDIR BASEDIR FTP_PASSWORD PASSPHRASE DUPLICITY DUPLICITY_OPTIONS
+test -f ~/.backup.rc && . ~/.backup.rc
+
+# args: variable name and prompt
+input() {
+    var=$1
+    test -n "${!var}" && return
+    echo -n "$2: "
+    read $var
+    export "${var}"
+    unset var
+}
+
+export HOSTDIR=`hostname -s`
+input BASEDIR "backup location"
+input FTP_PASSWORD "FTP password"
+input PASSPHRASE "Backup passphrase"
+include_file=`mktemp`
+cat >${include_file} <<_EOF
+- /proc
+- /sys
+- /var/log
+- /mnt
+- /tmp
+- /var/tmp
+- /dev
+- /run
+- /var/lib/lxcfs
+- /var/lib/docker/overlay2
+- /root/.cache
+- /home/**/.cache
+- **/.ccache
+- **/btlayer-*
+_EOF
+read -r -d '' duplicity_options <<-_EOF
+    --volsize 200
+    --include-filelist ${include_file}
+    --exclude-if-present CACHEDIR.TAG
+    --ssl-no-check-certificate
+    --progress
+_EOF
+
+# todo: detect and automatically exclude non-data filesystems
+
+duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} --full-if-older-than 6M / "${BASEDIR}/${HOSTDIR}"
+duplicity ${duplicity_options} ${DUPLICITY_OPTIONS} remove-older-than 6M "${BASEDIR}/${HOSTDIR}"
+
+rm "${include_file}"

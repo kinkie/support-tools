@@ -1,0 +1,38 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/compat/**",
+                "${workspaceFolder}/src/**",
+                "${workspaceFolder}/lib/**",
+                "/usr/local/Cellar/cppunit/1.15.1/include",
+                "/usr/local/opt/openssl/include",
+                "/usr/local/include",
+                "/usr/local/opt/openldap/include",
+                "/usr/local/Cellar/libxml2/2.9.10/include/libxml2",
+                "/usr/local/Cellar/gnutls/3.6.12/include",
+                "/usr/local/Cellar/nettle/3.4.1/include",
+                "/usr/local/Cellar/libtasn1/4.16.0/include"
+            ],
+            "defines": [
+                "HAVE_CONFIG_H",
+                "DEFAULT_CONFIG_FILE=\"/Users/kinkie/squid/install/etc/squid.conf\"",
+                "_REENTRANT"
+            ],
+            "macFrameworkPath": [
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "clang-x64",
+            "forcedInclude" : [
+                "include/squid.h"
+            ]
+        }
+    ],
+    "version": 4
+}
