@@ -4,6 +4,14 @@ COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
 export LANG=${LANG:-C}
 
+for dir in /usr/bin /bin /usr/local/bin
+do
+  if [ -x $dir/renice ]; then
+           $dir/renice +10 $$ >/dev/null 2>/dev/null
+    break
+  fi
+done
+
 while getopts "hj:n-" optchar; do
   case "${optchar}" in
     j) export pjobs="-j${OPTARG}" ;;
@@ -24,9 +32,29 @@ case "$COMPILER" in
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
 esac
 
-for cc in $(type -path ccache) /usr/bin/ccache /usr/local/bin/ccache
+# custom command paths 
+for extrapath in \
+  /home/jenkins/bin \
+  /opt/rh/devtoolset-2/root/usr/bin
 do
-  test -x $cc && ccache_bin="$cc "
+  test -d "$extrapath" && export PATH="$extrapath:$PATH"
+done
+
+# for dir in $(dirname $(type -path $CC)) /usr/bin /usr/local/bin
+# do
+#   if [ -x "$dir/$CC" ]; then
+#     CC="$dir/$CC"
+#     CXX="$dir/$CXX"
+#     break
+#   fi
+# done
+
+for cc in `type -path ccache` /usr/bin/ccache /usr/local/bin/ccache
+do
+  if [ -x $cc ]; then
+    ccache_bin="$cc "
+    break
+  fi
 done
 
 if [ "$COMPILER" != "icc" -a -z "${no_ccache}" ]
@@ -35,14 +63,6 @@ then
    CXX="${ccache_bin}${CXX}"
 fi
 export CC CXX
-
-# custom command paths 
-for extrapath in \
-  /home/jenkins/bin \
-  /opt/rh/devtoolset-2/root/usr/bin
-do
-  test -d "$extrapath" && export PATH="$extrapath:$PATH"
-done
 
 # cache file . will be ignored unless we received as argument --aggressively-use-config-cache
 config_cache_dir=$HOME/lib/config-cache
