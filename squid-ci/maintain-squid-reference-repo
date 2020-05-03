@@ -1,0 +1,8 @@
+#!/bin/bash
+
+. $(dirname $0)/config.inc
+if [ -d $shared_docker_squid_reference_repo ]; then
+	(cd $shared_docker_squid_reference_repo; git fetch --all --prune)
+else
+	git clone --mirror $squid_https_repo $shared_docker_squid_reference_repo
+fi
