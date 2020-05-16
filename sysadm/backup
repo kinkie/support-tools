@@ -29,7 +29,8 @@ cat >${include_file} <<_EOF
 - /dev
 - /run
 - /var/lib/lxcfs
-- /var/lib/docker/overlay2
+- /var/lib/docker
+- /srv/docker
 - /root/.cache
 - /home/**/.cache
 - **/.ccache
