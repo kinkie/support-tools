@@ -4,6 +4,7 @@ if [ -f $HOME/.gitconfig ]; then
     echo "gitconfig already present, manual merge please"
 else
     cp "`dirname $0`/gitconfig" $HOME/.gitconfig
+    cp "`dirname $0`/gitignore" $HOME/.gitignore
 fi
 test -n "`which vim`" && git config --global core.editor vim
 

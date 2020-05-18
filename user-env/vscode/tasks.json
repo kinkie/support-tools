@@ -11,7 +11,8 @@
                 "-w",
                 "-j",
                 "2",
-                "all"
+                "all",
+                "check"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

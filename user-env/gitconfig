@@ -1,13 +1,13 @@
 [alias]
-	st = status
+	st = status -s -uno
 	co = checkout
 	vacuum = clean -fdx
-    amend = commit --amend
+	amend = commit --amend
 	ci = commit
 	rem = remote -v
 	sl = log --oneline --graph
-    changed-files = "!f() { git diff --name-only \"${1:-origin/master}^\" --diff-filter=dxu ; }; f"
-    squid-format = "!f() { ./scripts/formater.pl $(git changed-files $1) ; }; f"
+	changed-files = "!f() { git diff --name-only \"${1:-origin/master}^\" --diff-filter=dxu ; }; f"
+	squid-format = "!f() { ./scripts/formater.pl $(git changed-files $1) ; }; f"
 
 [remote "origin"]
 fetch = +refs/pull/*/head:refs/pull/origin/*
@@ -15,3 +15,5 @@ fetch = +refs/pull/*/head:refs/pull/origin/*
 [user]
 	name = Francesco Chemolli
 	email = kinkie@squid-cache.org
+[core]
+	excludesfile = /Users/kinkie/.gitignore
