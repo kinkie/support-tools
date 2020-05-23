@@ -11,5 +11,5 @@ test -n "`which vim`" && git config --global core.editor vim
 if [ -f $HOME/.vimrc ]; then
     echo "vimrc already present, manual merge please"
 else
-    cp "`dirname $0`/vimrc" $HOME/.vimrc
+    cp "`dirname $0`/configs//vimrc" $HOME/.vimrc
 fi
