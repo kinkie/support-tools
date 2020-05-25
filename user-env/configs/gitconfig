@@ -14,6 +14,6 @@ fetch = +refs/pull/*/head:refs/pull/origin/*
 
 [user]
 	name = Francesco Chemolli
-	email = kinkie@squid-cache.org
+	email = kinkie_AT_PLACEHOLDER_squid-cache.org
 [core]
 	excludesfile = /Users/kinkie/.gitignore

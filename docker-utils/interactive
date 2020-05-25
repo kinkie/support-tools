@@ -1,0 +1,40 @@
+#!/bin/bash
+
+list() {
+    docker images | grep -F squidcache/buildfarm | awk '{print $2}'| sort | sed "s/${ARCH}-//"
+}
+
+help() {
+    cat <<_EOF
+$0 -l : list images
+$0 -o os [-u user (jenkins)] [-- command (/bin/bash -l)]
+_EOF
+}
+
+ARCH=`uname -m`
+while getopts "o:hu:l-" optchar; do
+    case "${optchar}" in
+    u) user=${OPTARG};;
+    l) list; exit 0;;
+    h) help; exit 0;;
+    o) os=${OPTARG} ;;
+    -) break;;
+    esac
+done
+shift $((OPTIND -1))
+if [ $# -gt 0 ] ; then
+    command=$@
+else
+    command="/bin/bash -l"
+fi
+if [ -z "$os" ]; then
+    echo "you need to specify an OS"
+    help
+    exit 1
+fi
+
+exec docker run -ti --rm -v"$HOME:$HOME" -w"$PWD" \
+    -u ${user:-jenkins} \
+    -h "i-${os}" \
+    squidcache/buildfarm:${ARCH}-${os} \
+    $command

@@ -4,3 +4,5 @@ test -d ~/.ssh || mkdir ~/.ssh && chmod 700 ~/.ssh
 echo "Type key to authorize, end with ctrl-d"
 cat >>~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
+
+cp `basename $0`/configs/ssh-config ~/.ssh

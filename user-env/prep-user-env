@@ -1,15 +1,36 @@
-#!/bin/sh
+#!/bin/bash
 
-if [ -f $HOME/.gitconfig ]; then
-    echo "gitconfig already present, manual merge please"
-else
-    cp "`dirname $0`/gitconfig" $HOME/.gitconfig
-    cp "`dirname $0`/gitignore" $HOME/.gitignore
-fi
+configsdir=`dirname $0`/configs
+
+# args: config to be installed (from configs), and where to
+install_config() {
+	test -f $2 && echo "$1 already installed to $2"
+	read -n1 -p "install $1? [y/f/*]" q ; echo
+	case $q in
+		f|F) install -D -v $configsdir/$1 $2;;
+		y|Y) test -f $2 || install -D -v $configsdir/$1 $2;;
+		*) : ;;
+	esac
+}
+
+install_config gitconfig ~/.gitconfig
+install_config gitignore ~/.gitignore
+sed -i 's/_AT_PLACEHOLDER_/@/' ~/.gitconfig
+
 test -n "`which vim`" && git config --global core.editor vim
 
-if [ -f $HOME/.vimrc ]; then
-    echo "vimrc already present, manual merge please"
-else
-    cp "`dirname $0`/vimrc" $HOME/.vimrc
+install_config vimrc ~/.vimrc
+mkdir -v -m 700 ~/.ssh
+install_config ssh-config ~/.ssh/config
+
+install_config bash_profile ~/.bash_profile
+
+if [ -x /usr/bin/systemctl ]; then
+	echo "preparing ssh-agent service"
+	install_config ssh-agent.service ~/.config/systemd/user/default.target.wants/
+    read -n1 -p "Activate ssh-agent?" q
+    case $q in
+        y) systemctl --user enable ssh-agent; systemctl --user start ssh-agent;;
+        *) : ;;
+    esac
 fi

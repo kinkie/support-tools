@@ -1,0 +1,4 @@
+test -e ~/.bashrc && . ~/.bashrc
+
+test -n "$XDG_RUNTIME_DIR" && \
+    export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
