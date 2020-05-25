@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec gmake -w $@ 2>&1 | gawk -f $0.awk
