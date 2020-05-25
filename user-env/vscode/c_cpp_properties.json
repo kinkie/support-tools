@@ -1,13 +1,13 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Linux",
             "includePath": [
                 "${workspaceFolder}",
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/compat/**",
                 "${workspaceFolder}/src/**",
-                "${workspaceFolder}/lib/**",
+                "${workspaceFolder}/lib/**"
             ],
             "defines": [
                 "HAVE_CONFIG_H",
