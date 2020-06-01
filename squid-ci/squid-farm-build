@@ -22,11 +22,12 @@ done
 shift $((OPTIND -1))
 
 case $1 in
-  gcc*|clang*|icc*) COMPILER=$1; shift ;;
+  gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
 esac
 
 case "$COMPILER" in
   gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
+  egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
   clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
   icc) CC="icc"; CXX="icpc";;
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
