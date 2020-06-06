@@ -71,6 +71,7 @@ test -d $config_cache_dir || mkdir -p $config_cache_dir
 cache_file=$config_cache_dir/config-$(uname -m)-${OS:-${HOSTNAME:-generic}}-${COMPILER}.cache
 export cache_file
 
+SECONDS=0
 echo "***** Start time: $(date) *****"
 ./test-builds.sh $@
 result=$?
@@ -80,4 +81,5 @@ if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlaye
 else
   exit $result
 fi
-echo "***** End time: $(date) *****"
+minutes=$(( $SECONDS / 60 ))
+echo "***** End time: $(date) ($minutes minutes wall time) *****"
