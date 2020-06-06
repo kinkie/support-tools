@@ -8,6 +8,7 @@
 	sl = log --oneline --graph
 	changed-files = "!f() { git diff --name-only \"${1:-origin/master}^\" --diff-filter=dxu ; }; f"
 	squid-format = "!f() { ./scripts/formater.pl $(git changed-files $1) ; }; f"
+    first-push = "!f() { git push --set-upstream origin `git branch --show-current` ; }; f"
 
 [remote "origin"]
 fetch = +refs/pull/*/head:refs/pull/origin/*
