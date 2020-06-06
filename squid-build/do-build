@@ -47,7 +47,7 @@ fi
 
 DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-loadable-modules \
-        --enable-gnuregex \
+        --disable-gnuregex \
         --enable-optimizations \
         --enable-inline \
         --enable-debug-cbdata \

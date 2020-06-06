@@ -22,11 +22,12 @@ done
 shift $((OPTIND -1))
 
 case $1 in
-  gcc*|clang*|icc*) COMPILER=$1; shift ;;
+  gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
 esac
 
 case "$COMPILER" in
   gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
+  egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
   clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
   icc) CC="icc"; CXX="icpc";;
   *) echo "Unknown COMPILER set, aborting"; exit 1;;
@@ -70,6 +71,7 @@ test -d $config_cache_dir || mkdir -p $config_cache_dir
 cache_file=$config_cache_dir/config-$(uname -m)-${OS:-${HOSTNAME:-generic}}-${COMPILER}.cache
 export cache_file
 
+SECONDS=0
 echo "***** Start time: $(date) *****"
 ./test-builds.sh $@
 result=$?
@@ -79,4 +81,5 @@ if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlaye
 else
   exit $result
 fi
-echo "***** End time: $(date) *****"
+minutes=$(( $SECONDS / 60 ))
+echo "***** End time: $(date) ($minutes minutes wall time) *****"
