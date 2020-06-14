@@ -3,12 +3,12 @@
 # compilers: --clang, --icc
 
 read -d '' helpmsg <<_EOF
-options: dir, force, build, clang, icc, no-ccache, log=file,
+options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer,
          ring, parallel=#, clean, revno, no-opt, ecap, help
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler: --options fbc:inl:j:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer: --options fbc:inl:j:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -36,6 +36,7 @@ while true; do
     --pass) extraargs="$2"; shift 2;;
     --clean) do_clean=true; shift;;
     --revno) revno="$2"; shift 2;;
+    --layer) layer="$2"; shift 2;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -45,6 +46,7 @@ if [ -n $logfile ]; then
   exec 2>&1
 fi
 
+# the default
 DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-loadable-modules \
         --disable-gnuregex \
@@ -108,6 +110,17 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-pthreads \
         --disable-arch-native \
         "
+
+if [ -n "$layer" ]; then
+    for layerdir in test-suite/buildtests `dirname $0`; do
+        f=`ls $layerdir/*$layer* 2>/dev/null`
+        if [ -n "$f" -a -e "$f" ]; then
+            echo "using layer: $f"
+            . $f
+            break
+        fi
+    done
+fi
 
 if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
