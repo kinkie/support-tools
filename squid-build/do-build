@@ -156,7 +156,9 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
 fi
 
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
-  ./bootstrap.sh
+    echo "bootstrapping"
+    ./bootstrap.sh
+    echo "adjusting libltdl"
     (cd libltdl; autoreconf -fi)
 fi
 
@@ -170,7 +172,8 @@ if [ -n "$builddir" ]; then
 fi
 
 test -n "$CC" && export CC CXX
-${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
+echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+eval "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
   make ${parallel} all && make ${parallel} check
