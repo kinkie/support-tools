@@ -1,0 +1,21 @@
+#!/bin/bash
+
+image=$1
+shift
+arch=`uname -m`
+if [ `docker images "squidcache/buildfarm:$arch-$image" | wc -l` -ge 2 ] ; then
+    actualimage="squidcache/buildfarm:`uname -m`-$image"
+elif [ `docker images farm-$image | wc -l` -ge 2 ]; then
+    actualimage=farm-$image
+else
+    echo "image $image not found"
+fi
+
+if [ $# -eq 0 ] ; then
+    command="/bin/bash -l"
+else
+    command="$@"
+fi
+
+
+docker run -ti --rm -u $USER -v $HOME:/home/$USER $actualimage $command
