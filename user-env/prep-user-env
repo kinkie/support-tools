@@ -15,6 +15,7 @@ install_config() {
 
 install_config gitconfig ~/.gitconfig
 install_config gitignore ~/.gitignore
+install_config tmux.conf ~/.tmux.conf
 sed -i 's/_AT_PLACEHOLDER_/@/' ~/.gitconfig
 
 test -n "`which vim`" && git config --global core.editor vim
