@@ -3,17 +3,18 @@
 # compilers: --clang, --icc
 
 read -d '' helpmsg <<_EOF
-options: dir, force, build, clang, icc, no-ccache, log=file,
+options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, continue,
          ring, parallel=#, clean, revno, no-opt, ecap, help
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler: --options fbc:inl:j:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue --options fbc:inl:j:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
+makeflags=""
 
 while true; do
   case "$1" in
@@ -36,6 +37,8 @@ while true; do
     --pass) extraargs="$2"; shift 2;;
     --clean) do_clean=true; shift;;
     --revno) revno="$2"; shift 2;;
+    --layer) layer="$2"; shift 2;;
+    --continue) makeflags="-k"; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -45,6 +48,7 @@ if [ -n $logfile ]; then
   exec 2>&1
 fi
 
+# the default
 DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-loadable-modules \
         --disable-gnuregex \
@@ -109,6 +113,17 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --disable-arch-native \
         "
 
+if [ -n "$layer" ]; then
+    for layerdir in test-suite/buildtests `dirname $0`; do
+        f=`ls $layerdir/*$layer* 2>/dev/null`
+        if [ -n "$f" -a -e "$f" ]; then
+            echo "using layer: $f"
+            . $f
+            break
+        fi
+    done
+fi
+
 if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
@@ -143,7 +158,9 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
 fi
 
 if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
-  ./bootstrap.sh
+    echo "bootstrapping"
+    ./bootstrap.sh
+    echo "adjusting libltdl"
     (cd libltdl; autoreconf -fi)
 fi
 
@@ -157,10 +174,11 @@ if [ -n "$builddir" ]; then
 fi
 
 test -n "$CC" && export CC CXX
-${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs
+echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+eval "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 
 if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
-  make ${parallel} all && make ${parallel} check
+  make ${parallel} ${continue} all && make ${parallel} ${continue} check
 fi
 
 if [ "$do_ring" = "true" ]; then
