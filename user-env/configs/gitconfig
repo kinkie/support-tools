@@ -10,6 +10,7 @@
     fork-point = merge-base --fork-point upstream/master
     rem = remote -v
     smartlog = log --oneline --graph
+    sl = log --oneline --graph
     squid-format = "!f() { ./scripts/formater.pl $(git changed-files $1) ; }; f"
     st = status -s -uno
     vacuum = clean -fdx
