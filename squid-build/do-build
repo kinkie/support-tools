@@ -8,7 +8,7 @@ options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, contin
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,build,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue --options fbc:inl:j:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in: --options fbc:inl:j:hrd: -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -24,6 +24,8 @@ while true; do
       export CXXFLAGS="$CXXFLAGS -O0 -g"
       shift ;;
     -f|--force) force_bootstrap="yes"; shift;;
+    --all) do_configure="yes"; do_build="yes"; shift;;
+    --configure) do_configure="yes"; shift;;
     -b|--build) do_build="yes"; shift;;
     -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
     --clang) CC="clang"; CXX="clang++"; shift;;
@@ -33,7 +35,8 @@ while true; do
     -h|--help) echo $helpmsg; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -j|--parallel) parallel="-j $2 "; shift 2;;
-    -d|--dir) builddir="$2 "; shift 2;;
+    -d|--dir) builddir="$2"; shift 2;;
+    --in) distro="$2"; shift 2;;
     --pass) extraargs="$2"; shift 2;;
     --clean) do_clean=true; shift;;
     --revno) revno="$2"; shift 2;;
@@ -111,6 +114,7 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-pic \
         --with-pthreads \
         --disable-arch-native \
+        --enable-strict-error-checking \
         "
 
 if [ -n "$layer" ]; then
@@ -144,6 +148,12 @@ if [ -n "$revno" ]; then
   git checkout -r$revno
 fi
 
+if [ -n "${distro:-}" ]; then
+    dockercmd="docker run -ti --rm -u $USER -v $HOME:$HOME -w $PWD/${builddir:-} -v ccache-${distro}:$HOME/.ccache -h build-${distro} farm-${distro}"
+else
+    dockercmd="eval"
+fi
+
 #macos hacks
 if [ "x$(uname -s)" = "xDarwin" ]; then
   export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/openssl/include -I/usr/local/include"
@@ -157,7 +167,7 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
   # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
-if [ ! -e ./configure -o "x$force_bootstrap" = "xyes" ]; then
+if [ ! -e ${builddir:-.}/configure -o "x$force_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
     ./bootstrap.sh
     echo "adjusting libltdl"
@@ -173,12 +183,15 @@ if [ -n "$builddir" ]; then
   cd $builddir
 fi
 
-test -n "$CC" && export CC CXX
-echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-eval "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 
-if [ $? -eq 0 -a "x$do_build" = "xyes" ]; then
-  make ${parallel} ${continue} all && make ${parallel} ${continue} check
+test -n "$CC" && export CC CXX
+if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
+    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    eval "${dockercmd} ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+fi
+
+if [ "x$do_build" = "xyes" ]; then
+  ${dockercmd} make ${parallel} ${continue} all check
 fi
 
 if [ "$do_ring" = "true" ]; then
