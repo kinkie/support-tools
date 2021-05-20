@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# make a squid release tarball and publish it to github releases,
+# one tarball per vesion per branch
+# It rquires the "gh" github CLI (https://github.com/cli/cli)
+# and to run the "gh auth login" command to obtain a valid token
+
+set -e
+
+BRANCH=`git branch | awk '/^\*/ { print $2}'`
+echo "branch; ${BRANCH}"
+
+REVISION=`git rev-parse --short "${BRANCH}"`
+echo "revision: ${REVISION}"
+
+DATE=`env TZ=GMT date +%Y%m%d`
+echo "date: ${DATE}"
+
+echo "bootstrapping"
+./bootstrap.sh
+
+eval `grep "^ *PACKAGE_VERSION=" configure | sed -e 's/-VCS//' | sed -e 's/PACKAGE_//'`
+
+echo "version: ${VERSION}"
+
+RELEASETAG="${VERSION}-${DATE}-${REVISION}"
+WORKDIR="squid-${RELEASETAG}"
+
+echo "preparing workdir ${WORKDIR}"
+mkdir ${WORKDIR}
+git archive --format=tar ${BRANCH} | tar -xC "${WORKDIR}"
+
+echo "bootstrapping in workdir"
+(cd "${WORKDIR}"; ./bootstrap.sh)
+
+echo "tarballing"
+tar cfz squid-${RELEASETAG}.tar.gz "${WORKDIR}"
+
+echo "releasing"
+gh release delete -y "${VERSION}-${BRANCH}-snapshot" || true
+gh release create "${VERSION}-${BRANCH}-snapshot" \
+    --title "Squid snapshot for branch ${BRANCH}" \
+    --notes "Squid ${VERSION} snapshot for branch ${BRANCH}, date ${DATE}, git revision ${REVISION}" \
+    --prerelease \
+    squid-${RELEASETAG}.tar.gz
+
+git clean -fdx
