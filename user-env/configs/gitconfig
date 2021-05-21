@@ -13,7 +13,7 @@
     sl = log --oneline --graph
     squid-format = "!f() { ./scripts/formater.pl $(git changed-files $1) ; }; f"
     st = status -s -uno
-    vacuum = clean -fdx
+    vacuum = clean -fdxq
 
 [remote "origin"]
 fetch = +refs/pull/*/head:refs/pull/origin/*
