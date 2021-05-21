@@ -2,13 +2,24 @@
 #
 # make a squid release tarball and publish it to github releases,
 # one tarball per vesion per branch
+#
 # It rquires the "gh" github CLI (https://github.com/cli/cli)
 # and to run the "gh auth login" command to obtain a valid token
+#
+# call in a git checkout directory of the approprieate branch
+# for squid, assuming upstream is https://github.com/squid-cache/squid,
+#   relevant branches are master, v4 and v5 at this time
 
 set -e
 
+echo "repository: ${REPO:=kinkie/squid}"
+
 BRANCH=`git branch | awk '/^\*/ { print $2}'`
-echo "branch; ${BRANCH}"
+echo "branch: ${BRANCH}"
+case "${BRANCH}" in
+ master) BRANCHLABEL="-master";;
+ *) BRANCHLABEL="";;
+esac
 
 REVISION=`git rev-parse --short "${BRANCH}"`
 echo "revision: ${REVISION}"
@@ -37,11 +48,14 @@ echo "tarballing"
 tar cfz squid-${RELEASETAG}.tar.gz "${WORKDIR}"
 
 echo "releasing"
-gh release delete -y "${VERSION}-${BRANCH}-snapshot" || true
-gh release create "${VERSION}-${BRANCH}-snapshot" \
+RELEASENAME="${VERSION}${BRANCHLABEL}-${DATE}-snapshot"
+gh -R ${REPO} release delete -y "${RELEASENAME}" || true
+gh -R ${REPO} release create "${RELEASENAME}" \
     --title "Squid snapshot for branch ${BRANCH}" \
     --notes "Squid ${VERSION} snapshot for branch ${BRANCH}, date ${DATE}, git revision ${REVISION}" \
     --prerelease \
     squid-${RELEASETAG}.tar.gz
 
-git clean -fdx
+git clean -fdxq
+
+# TODO: retire old snapshots?
