@@ -9,6 +9,9 @@
 # call in a git checkout directory of the approprieate branch
 # for squid, assuming upstream is https://github.com/squid-cache/squid,
 #   relevant branches are master, v4 and v5 at this time
+#
+# sample run command:
+# for branch in master v4 v5; do git switch $branch; git pull upstream/$branch; REPO=kinkie/squid make-release-tarball ; done
 
 set -e
 
