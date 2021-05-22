@@ -48,7 +48,7 @@ echo "tarballing"
 tar cfz squid-${RELEASETAG}.tar.gz "${WORKDIR}"
 
 echo "releasing"
-RELEASENAME="${VERSION}${BRANCHLABEL}-${DATE}-snapshot"
+RELEASENAME="${VERSION}-${DATE}${BRANCHLABEL}-snapshot"
 gh -R ${REPO} release delete -y "${RELEASENAME}" || true
 gh -R ${REPO} release create "${RELEASENAME}" \
     --title "Squid snapshot for branch ${BRANCH}" \
@@ -59,3 +59,8 @@ gh -R ${REPO} release create "${RELEASENAME}" \
 git clean -fdxq
 
 # TODO: retire old snapshots?
+tags_todelete=$(git tag -l '*-snapshot' | sort -t - -k 2 | tail -n +30)
+if [ -n "$tags_todelete" ]; then
+    echo "echo $tags | xargs -n1 gh -R ${REPO} release delete"
+    echo "echo $tags | xargs -n1 git tag -d"
+fi
