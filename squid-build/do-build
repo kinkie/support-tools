@@ -191,7 +191,7 @@ if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
 fi
 
 if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "make ${parallel} ${continue} all && make ${parallel} ${continue} check"
+    ${dockercmd} bash -c "make ${parallel} ${continue} all && make ${parallel} ${continue} check && echo Success >/dev/stderr"
 fi
 
 if [ "$do_ring" = "true" ]; then
