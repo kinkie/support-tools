@@ -208,5 +208,5 @@ if [ -n "$logfile" ]; then
 fi
 
 if [ "$do_ring" = "true" ]; then
-  echo -n ""
+  echo -n "" >&3
 fi
