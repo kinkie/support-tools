@@ -203,7 +203,7 @@ if [ "x$do_build" = "xyes" ]; then
 fi
 
 if [ -n "$logfile" ]; then
-    tail 1 "$logfile"
+    tail -n 1 "$logfile"
 fi
 
 if [ "$do_ring" = "true" ]; then
