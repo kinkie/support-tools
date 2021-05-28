@@ -50,6 +50,7 @@ while true; do
   esac
 done
 
+exec 3>&1
 if [ -n "$logfile" ]; then
   if [ -n "$quiet" ]; then
     exec >$logfile
@@ -203,7 +204,7 @@ if [ "x$do_build" = "xyes" ]; then
 fi
 
 if [ -n "$logfile" ]; then
-    tail -n 1 "$logfile"
+    tail -n 1 "$srcdir/$logfile" >&3
 fi
 
 if [ "$do_ring" = "true" ]; then
