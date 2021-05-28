@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # args: --force, --build
 # compilers: --clang, --icc
+## TODO: add --quiet
 
 read -d '' helpmsg <<_EOF
 options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, continue,
@@ -8,13 +9,14 @@ options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, contin
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in: --options fbc:inl:j:hrd: -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet --options fbc:inl:j:hrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
 makeflags=""
+quiet=""
 
 while true; do
   case "$1" in
@@ -42,12 +44,18 @@ while true; do
     --revno) revno="$2"; shift 2;;
     --layer) layer="$2"; shift 2;;
     --continue) makeflags="-k"; shift;;
+    -q|--quiet) quiet=">/dev/null"; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
 done
-if [ -n $logfile ]; then
-  exec > >(tee $logfile)
+
+if [ -n "$logfile" ]; then
+  if [ -n "$quiet" ]; then
+    exec >$logfile
+  else
+    exec > >(tee $logfile)
+  fi
   exec 2>&1
 fi
 
@@ -191,7 +199,11 @@ if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
 fi
 
 if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "make ${parallel} ${continue} all && make ${parallel} ${continue} check && echo Success >/dev/stderr"
+    ${dockercmd} bash -c "if make ${parallel} ${continue} all && make ${parallel} ${continue} check ; then echo Success; else echo Failed; fi"
+fi
+
+if [ -n "$logfile" ]; then
+    tail 1 "$logfile"
 fi
 
 if [ "$do_ring" = "true" ]; then
