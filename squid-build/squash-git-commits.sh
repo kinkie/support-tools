@@ -24,5 +24,5 @@ git commit
 git tag -d $branch-presquash
 
 or rollback with
-git checkout $branch-presquash
+git reset --hard $branch-presquash
 _EOF
