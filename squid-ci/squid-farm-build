@@ -4,14 +4,6 @@ COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
 export LANG=${LANG:-C}
 
-for dir in /usr/bin /bin /usr/local/bin
-do
-  if [ -x $dir/renice ]; then
-           $dir/renice +10 $$ >/dev/null 2>/dev/null
-    break
-  fi
-done
-
 while getopts "hj:n-" optchar; do
   case "${optchar}" in
     j) export pjobs="-j${OPTARG}" ;;
@@ -73,11 +65,11 @@ export cache_file
 
 SECONDS=0
 echo "***** Start time: $(date) *****"
-./test-builds.sh $@
+nice ./test-builds.sh $@
 result=$?
 if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
   (cd libltdl; autoreconf -fi)
-  ./test-builds.sh $@
+  nice ./test-builds.sh $@
 else
   exit $result
 fi
