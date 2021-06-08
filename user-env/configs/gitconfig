@@ -1,8 +1,12 @@
 [alias]
     amend = commit --amend
+    au = add -u
     changed-files = "!f() { git diff --name-only \"${1:-origin/master}^\" --diff-filter=dxu ; }; f"
-    ci = commit
+    commit = commit -v
+    ci = commit -v
+    cis = commit -S -v
     co = checkout
+    conflicts = diff --name-only --diff-filter=U
     diff = diff -U20
     diff-with-fork = "!f() { git diff -r `git fork-point` ; }; f"
     diff-with-upstream = "diff -r upstream/master"
@@ -16,11 +20,12 @@
     vacuum = clean -fdxq
 
 [remote "origin"]
-fetch = +refs/pull/*/head:refs/pull/origin/*
+	fetch = +refs/pull/*/head:refs/pull/origin/*
 
 [user]
-    name = Francesco Chemolli
-    email = kinkie_AT_PLACEHOLDER_squid-cache.org
+	name = Francesco Chemolli
+	email = kinkie@squid-cache.org
+	signingkey = FEF6E865
 [core]
-    excludesfile = /Users/kinkie/.gitignore
-    editor = vim
+	excludesFile = /home/kinkie/.gitignore
+	editor = vim

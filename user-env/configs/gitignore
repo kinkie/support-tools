@@ -1,1 +1,11 @@
+*.h.in
+*.swp
 .vscode
+Makefile.in
+SPONSORS
+aclocal.m4
+autom4te.cache
+build
+cfgaux
+configure
+libltdl
