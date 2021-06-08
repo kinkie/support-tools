@@ -30,8 +30,8 @@ install_connfig bashrc ~/.bashrc
 
 if [ -x /usr/bin/systemctl ]; then
 	echo "preparing ssh-agent service"
-	install_config ssh-agent.service ~/.config/systemd/user/default.target.wants/
-    read -n1 -p "Activate ssh-agent?" q
+	install_config ssh-agent.service ~/.config/systemd/user/ssh-agent.service
+    read -n1 -p "Activate systemd-based ssh-agent?" q
     case $q in
         y) systemctl --user enable ssh-agent; systemctl --user start ssh-agent;;
         *) : ;;
