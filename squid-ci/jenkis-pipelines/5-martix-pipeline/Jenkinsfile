@@ -1,5 +1,18 @@
+// arch-os combinations to do. 'all' means all of them
+def todo = [
+    arm64: [ ],
+    armv7l: [ ],
+    amd64: [ 'all' ]
+]
+// arch-os-compiler combinations to skip
+def toskip = [
+    'arm64': [ : ]
+]
+def support_tools_repo = 'https://github.com/kinkie/support-tools.git'
+def squid_repo = "https://github.com/squid-cache/squid.git"
+
 pipeline {
-    agent { label 'master' }
+    agent { label 'mcp' }
     options {
         buildDiscarder(logRotator(numToKeepStr: '1'))
         retry(2)
@@ -9,7 +22,7 @@ pipeline {
     parameters {
 // these end in ${params.<name>}
 // for multichoice see Extended Choice Parameter plugin
-        string ( name: 'repository', defaultValue: 'https://github.com/squid-cache/squid.git', description: '' )
+        string ( name: 'repository', defaultValue: squid_repo, description: '' )
         string ( name: 'branch', defaultValue: 'master', description: '' )
         choice ( name: 'test_layer', choices: ['all', 'layer-00-default', 'layer-02-maximus'], description: '')
         choice ( name: 'build_environment', choices: ['stable', 'latest'], description: '')
@@ -20,40 +33,57 @@ pipeline {
                 axes {
                     axis {
                         name 'CPU'
-                        values 'amd64'
+                        values 'amd64', 'arm64', 'armv7l'
                     }
                     axis {
                         name 'OS'
-                        values 'centos-7', 'ubuntu-hirsute'
+                        values 'centos-7', 'centos-8'
+                        // values 'centos-7', 'centos-8', 'debian-stable', 'debian-testing', 'debian-unstable', 'fedora-32', 'fedora-33', 'fedora-34', 'fedora-rawhide', 'gentoo', 'opensuse-leap', 'ubuntu-bionic', 'ubuntu-focal', 'ubuntu-hirsute'
                     }
                     axis {
                         name 'COMPILER'
                         values 'gcc'
-                    }
-                }
-                excludes {
-                    exclude {
-                        axis {
-                            name 'OS'
-                            values 'centos-7'
-                        }
-                        axis {
-                            name 'COMPILER'
-                            values 'clang'
-                        }
+                        // values 'gcc', 'clang'
                     }
                 }
                 stages {
                     stage('build') {
-                        agent { label "farm && ${CPU}" }
-//                        when { // https://www.jenkins.io/doc/book/pipeline/syntax/#when
-//                            beforeAgent
-//                            expression { env.NODE_LABELS ==~ /regex/ }
-//                        }
+                        agent { 
+                            node { 
+                                label "farm && ${CPU}"
+                                customWorkspace "workspace/${currentBuild.projectName}-${OS}-${COMPILER}"
+                            } 
+                        }
+                        // https://www.jenkins.io/doc/book/pipeline/syntax/#when
+                        when {
+                            beforeAgent true
+                            allOf {
+                                expression { todo[CPU] && todo[CPU].contains(OS) || todo[CPU].contains('all') }
+                                expression { !(toskip[CPU] && toskip[CPU][OS] && toskip[CPU][OS].find(COMPILER)) }
+                            }
+                        }
+                        // environment {
+                        //     NODL = "${env.NODE_LABELS}"
+                        // }
                         steps {
+                            // maintain squid reference repository
+                            lock(quantity: 1, resource: 'squid-reference-repo') {
+                                sh """
+if [ -d ../squid-reference-repo ] ; then
+    (cd ../squid-reference-repo; git fetch --all --prune)
+else
+    git clone --mirror ${squid_repo} ../squid-reference-repo
+fi
+"""
+                            }
+                            // checkout sources and support-tools
+                            sh 'ls -ld ../squid-reference-repo'
+                            checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: "${params.branch}"]], extensions: [[$class: 'CloneOption', noTags: false, reference: '../squid-reference-repo', shallow: false]], userRemoteConfigs: [[url: "${params.repository}"]]]
+                            checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'support-tools']], userRemoteConfigs: [[url: 'https://github.com/kinkie/support-tools']]])
+                            // do it
                             echo "CPU: ${CPU}, OS: ${OS}, COMPILER: ${COMPILER}"
-                            echo "labels: ${env.LABELS}"
-                            sh "env"
+                            echo "WORKSPACE: $WORKSPACE"
+                            sh "hostname; ls"
                         }
                     }
                 }
