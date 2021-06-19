@@ -52,7 +52,7 @@ pipeline {
 //                        }
                         steps {
                             echo "CPU: ${CPU}, OS: ${OS}, COMPILER: ${COMPILER}"
-                            sh "hostname"
+                            echo "labels: ${env.LABELS}"
                             sh "env"
                         }
                     }
