@@ -1,0 +1,63 @@
+pipeline {
+    agent { label 'master' }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '1'))
+        retry(2)
+        skipDefaultCheckout()
+        skipStagesAfterUnstable()
+    }
+    parameters {
+// these end in ${params.<name>}
+// for multichoice see Extended Choice Parameter plugin
+        string ( name: 'repository', defaultValue: 'https://github.com/squid-cache/squid.git', description: '' )
+        string ( name: 'branch', defaultValue: 'master', description: '' )
+        choice ( name: 'test_layer', choices: ['all', 'layer-00-default', 'layer-02-maximus'], description: '')
+        choice ( name: 'build_environment', choices: ['stable', 'latest'], description: '')
+    }
+    stages {
+        stage('multiarch build') {
+            matrix {
+                axes {
+                    axis {
+                        name 'CPU'
+                        values 'amd64'
+                    }
+                    axis {
+                        name 'OS'
+                        values 'centos-7', 'ubuntu-hirsute'
+                    }
+                    axis {
+                        name 'COMPILER'
+                        values 'gcc'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'OS'
+                            values 'centos-7'
+                        }
+                        axis {
+                            name 'COMPILER'
+                            values 'clang'
+                        }
+                    }
+                }
+                stages {
+                    stage('build') {
+                        agent { label 'farm && ${CPU}' }
+//                        when { // https://www.jenkins.io/doc/book/pipeline/syntax/#when
+//                            beforeAgent
+//                            expression { env.NODE_LABELS ==~ /regex/ }
+//                        }
+                        steps {
+                            echo "CPU: ${CPU}, OS: ${OS}, COMPILER: ${COMPILER}"
+                            sh "hostname"
+                            sh "env"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
