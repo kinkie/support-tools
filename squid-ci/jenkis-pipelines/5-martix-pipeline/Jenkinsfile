@@ -1,10 +1,12 @@
 // arch-os combinations to do. 'all' means all of them
+// TODO: configure
 def todo = [
     arm64: [ ],
     armv7l: [ ],
     amd64: [ 'all' ]
 ]
 // arch-os-compiler combinations to skip
+// TODO: configure
 def toskip = [
     'arm64': [ : ]
 ]
@@ -18,17 +20,19 @@ pipeline {
         retry(2)
         skipDefaultCheckout()
         skipStagesAfterUnstable()
+        disableConcurrentBuilds()
     }
     parameters {
 // these end in ${params.<name>}
 // for multichoice see Extended Choice Parameter plugin
         string ( name: 'repository', defaultValue: squid_repo, description: '' )
         string ( name: 'branch', defaultValue: 'master', description: '' )
-        choice ( name: 'test_layer', choices: ['all', 'layer-00-default', 'layer-02-maximus'], description: '')
-        choice ( name: 'build_environment', choices: ['stable', 'latest'], description: '')
+        choice ( name: 'test_layer', choices: ['', 'layer-00-default', 'layer-01-minimal', 'layer-02-maximus', 'layer-04-noauth-everything'], description: 'empty for all')
+        choice ( name: 'build_environment', choices: ['stable', 'latest'], description: 'what docker image tag to use')
+        choice ( name: 'testparm', choices: ['foo', 'bar'], description: '' )
     }
     stages {
-        stage('multiarch build') {
+        stage('linux build') {
             matrix {
                 axes {
                     axis {
@@ -66,7 +70,7 @@ pipeline {
                         //     NODL = "${env.NODE_LABELS}"
                         // }
                         steps {
-                            // maintain squid reference repository
+                            echo 'updating squid reference repository'
                             lock(quantity: 1, resource: 'squid-reference-repo') {
                                 sh """
 if [ -d ../squid-reference-repo ] ; then
@@ -75,19 +79,34 @@ else
     git clone --mirror ${squid_repo} ../squid-reference-repo
 fi
 """
-                            }
-                            // checkout sources and support-tools
-                            sh 'ls -ld ../squid-reference-repo'
+                            } // lock for prod mode
+                            echo "checking sources and support tools out"
                             checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: "${params.branch}"]], extensions: [[$class: 'CloneOption', noTags: false, reference: '../squid-reference-repo', shallow: false]], userRemoteConfigs: [[url: "${params.repository}"]]]
                             checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'support-tools']], userRemoteConfigs: [[url: 'https://github.com/kinkie/support-tools']]])
-                            // do it
+                            echo "building"
                             echo "CPU: ${CPU}, OS: ${OS}, COMPILER: ${COMPILER}"
                             echo "WORKSPACE: $WORKSPACE"
-                            sh "hostname; ls"
+                            sh "if [ -e configure ] ; then rm configure ; fi"
+                            sh """
+docker run --rm -u jenkins \\
+    -v '$HOME/docker-images/homedir:/home/jenkins' \\
+    -v '$WORKSPACE:$WORKSPACE' -w '$WORKSPACE' \\
+    squidcache/buildfarm-`uname -m`-${OS}:${params.build_environment} \\
+    support-tools/squid-ci/squid-farm-build ${COMPIlER} \\
+    --verbose --use-config-cache --cleanup \\
+    ${params.test_layer}
+"""
+                            // } // lock for debugging-moide
                         }
+                    }
+                }
+                post {
+                    always {
+                        cleanWs cleanWhenFailure: false, cleanWhenUnstable: false
                     }
                 }
             }
         }
+        // TODO: add FreeBSD and OpenBSD stages
     }
 }
