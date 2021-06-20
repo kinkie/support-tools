@@ -1,17 +1,18 @@
 // arch-os combinations to do. 'all' means all of them
-// TODO: configure
 def todo = [
-    arm64: [ ],
-    armv7l: [ ],
+    arm64: [ 'all' ],
+    armv7l: [ 'centos-7', 'debian-stable', 'opensuse-leap', 'ubuntu-bionic', 'ubuntu-xenial'],
     amd64: [ 'all' ]
 ]
 // arch-os-compiler combinations to skip
-// TODO: configure
 def toskip = [
-    'arm64': [ : ]
+    armv7l: [ 'centos-7': [ 'clang '], 'ubuntu-xenial': ['clang']]
 ]
 def support_tools_repo = 'https://github.com/kinkie/support-tools.git'
 def squid_repo = "https://github.com/squid-cache/squid.git"
+
+def do_build() {
+}
 
 pipeline {
     agent { label 'mcp' }
@@ -22,15 +23,14 @@ pipeline {
         skipStagesAfterUnstable()
         disableConcurrentBuilds()
     }
-    parameters {
+    // parameters {
 // these end in ${params.<name>}
 // for multichoice see Extended Choice Parameter plugin
-        string ( name: 'repository', defaultValue: squid_repo, description: '' )
-        string ( name: 'branch', defaultValue: 'master', description: '' )
-        choice ( name: 'test_layer', choices: ['', 'layer-00-default', 'layer-01-minimal', 'layer-02-maximus', 'layer-04-noauth-everything'], description: 'empty for all')
-        choice ( name: 'build_environment', choices: ['stable', 'latest'], description: 'what docker image tag to use')
-        choice ( name: 'testparm', choices: ['foo', 'bar'], description: '' )
-    }
+        // string ( name: 'repository', defaultValue: squid_repo, description: '' )
+        // string ( name: 'branch', defaultValue: 'master', description: '' )
+        // choice ( name: 'test_layer', choices: ['', 'layer-00-default', 'layer-01-minimal', 'layer-02-maximus', 'layer-04-noauth-everything'], description: 'empty for all')
+        // choice ( name: 'build_environment', choices: ['stable', 'latest'], description: 'what docker image tag to use')
+    // }
     stages {
         stage('linux build') {
             matrix {
@@ -41,13 +41,13 @@ pipeline {
                     }
                     axis {
                         name 'OS'
-                        values 'centos-7', 'centos-8'
-                        // values 'centos-7', 'centos-8', 'debian-stable', 'debian-testing', 'debian-unstable', 'fedora-32', 'fedora-33', 'fedora-34', 'fedora-rawhide', 'gentoo', 'opensuse-leap', 'ubuntu-bionic', 'ubuntu-focal', 'ubuntu-hirsute'
+                        // values 'centos-7', 'centos-8'
+                        values 'centos-7', 'centos-8', 'debian-stable', 'debian-testing', 'debian-unstable', 'fedora-32', 'fedora-33', 'fedora-34', 'fedora-rawhide', 'gentoo', 'opensuse-leap', 'ubuntu-bionic', 'ubuntu-focal', 'ubuntu-hirsute'
                     }
                     axis {
                         name 'COMPILER'
-                        values 'gcc'
-                        // values 'gcc', 'clang'
+                        // values 'gcc'
+                        values 'gcc', 'clang'
                     }
                 }
                 stages {
@@ -70,7 +70,6 @@ pipeline {
                         //     NODL = "${env.NODE_LABELS}"
                         // }
                         steps {
-                            echo 'updating squid reference repository'
                             lock(quantity: 1, resource: 'squid-reference-repo') {
                                 sh """
 if [ -d ../squid-reference-repo ] ; then
@@ -80,12 +79,8 @@ else
 fi
 """
                             } // lock for prod mode
-                            echo "checking sources and support tools out"
                             checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: "${params.branch}"]], extensions: [[$class: 'CloneOption', noTags: false, reference: '../squid-reference-repo', shallow: false]], userRemoteConfigs: [[url: "${params.repository}"]]]
                             checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'support-tools']], userRemoteConfigs: [[url: 'https://github.com/kinkie/support-tools']]])
-                            echo "building"
-                            echo "CPU: ${CPU}, OS: ${OS}, COMPILER: ${COMPILER}"
-                            echo "WORKSPACE: $WORKSPACE"
                             sh "if [ -e configure ] ; then rm configure ; fi"
                             sh """
 docker run --rm -u jenkins \\
@@ -110,3 +105,5 @@ docker run --rm -u jenkins \\
         // TODO: add FreeBSD and OpenBSD stages
     }
 }
+
+// global variables reference: https://build.squid-cache.org/job/anybranch-pipeline/pipeline-syntax/globals#currentBuild
