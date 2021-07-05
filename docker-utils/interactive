@@ -7,11 +7,12 @@ list() {
 help() {
     cat <<_EOF
 $0 -l : list images
-$0 -o os [-u user (jenkins)] [-- command (/bin/bash -l)]
+$0 -o os [-u user (current uid)] [-- command (/bin/bash -l)]
 _EOF
 }
 
 ARCH=`uname -m`
+DEFAULT_UID=`id -u`
 while getopts "o:hu:l-" optchar; do
     case "${optchar}" in
     u) user=${OPTARG};;
@@ -34,7 +35,7 @@ if [ -z "$os" ]; then
 fi
 
 exec docker run -ti --rm -v"$HOME:$HOME" -w"$PWD" \
-    -u ${user:-jenkins} \
+    -u ${user:-$DEFAULT_UID} \
     -h "i-${os}" \
-    squidcache/buildfarm:${ARCH}-${os} \
+    squidcache/buildfarm-${ARCH}-${os} \
     $command
