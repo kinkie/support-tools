@@ -1,0 +1,6 @@
+#!/bin/bash
+
+destination="${1:-https://build.squid-cache.org}"
+url="${destination}/queue/api/json"
+
+curl -k --no-progress-meter "$url" | jq '.items[].id' | wc -l
