@@ -3,6 +3,7 @@
 COMPILER=${COMPILER:-gcc}
 echo "revno: $GIT_COMMIT"
 export LANG=${LANG:-C}
+export CCACHE_COMPRESS=true
 
 while getopts "hj:n-" optchar; do
   case "${optchar}" in
