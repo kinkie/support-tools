@@ -126,6 +126,11 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-strict-error-checking \
         "
 
+if ls btlayer* >/dev/null 2>&1 ; then
+  chmod -R u+w btlayer*
+  rm -rf btlayer*
+fi
+
 if [ -n "$layer" ]; then
     for layerdir in test-suite/buildtests `dirname $0`; do
         f=`ls $layerdir/*$layer* 2>/dev/null`
