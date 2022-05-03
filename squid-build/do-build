@@ -4,8 +4,26 @@
 ## TODO: add --quiet
 
 read -d '' helpmsg <<_EOF
-options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, continue,
-         ring, parallel=#, clean, revno, no-opt, ecap, help
+options:
+	--ecap : build ecap
+	--no-opt : do not optimize
+	--force : force autoconf bootstrap
+	--all : configure and build
+	--compiler <gcc,clang>
+	--icc
+	--no-ccache
+	--log <file> : log output to <file>
+	--help
+	--ring : ring at end of build
+	--parallel <#>
+	--dir <dir> : use <dir> as build directory
+	--in <distro> : use docker image distro to do the build
+	--pass <arg> : argument passthrough
+	--clean
+	--revno <revision>
+	--layer <layer> : support shortcuts (e.g. --layer 02)
+	--continue : do not stop on make errors
+	--quiet
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
@@ -34,7 +52,7 @@ while true; do
     -i|--icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
-    -h|--help) echo $helpmsg; exit 0;;
+    -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -j|--parallel) parallel="-j $2 "; shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
