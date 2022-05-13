@@ -18,6 +18,11 @@ case $1 in
   gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
 esac
 
+if [ "x`lsb_release -c -s`" = "xxenial" -a "x$COMPILER" = "xclang" ]; then
+	# hack: build on xenial fails with ccache and clang
+	no_ccache=true
+fi
+
 case "$COMPILER" in
   gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
   egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
@@ -50,6 +55,7 @@ do
     break
   fi
 done
+
 
 if [ "$COMPILER" != "icc" -a -z "${no_ccache}" ]
 then
