@@ -28,6 +28,11 @@ options:
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
+envfile=`mktemp`
+onexit() {
+	rm "$envfile"
+}
+
 opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet --options fbc:inl:j:hrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
@@ -185,7 +190,7 @@ if [ -n "$revno" ]; then
 fi
 
 if [ -n "${distro:-}" ]; then
-    dockercmd="docker run -ti --rm -u $USER -v $HOME:$HOME -w $PWD/${builddir:-} -v ccache-${distro}:$HOME/.ccache -h build-${distro} squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} --env-file $envfile squidcache/buildfarm-$(uname -m)-${distro}"
 else
     dockercmd=""
 fi
@@ -203,6 +208,16 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
   # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
+# set up environment variables in the container
+test -n "$CC" && export CC CXX
+for var in CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
+do
+	test -n "${!var}" || continue
+	echo "$var=${!var}" >>$envfile
+	echo "ENV: $var='${!var}'"
+done
+
+# configure
 if [ ! -e configure -o "x$force_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
     ${dockercmd} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
@@ -218,14 +233,13 @@ if [ -n "$builddir" ]; then
 fi
 
 
-test -n "$CC" && export CC CXX
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
     ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 fi
 
 if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "export CCACHE_COMPRESS=true ; if make ${parallel} ${continue} all && make ${parallel} ${continue} check ; then echo Success; else make all check || echo Failure ; fi"
+    ${dockercmd} bash -c "if make ${parallel} ${continue} all && make ${parallel} ${continue} check ; then echo Success; else make all check || echo Failure ; fi"
 fi
 
 if [ -n "$logfile" ]; then
