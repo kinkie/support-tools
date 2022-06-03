@@ -18,7 +18,9 @@ case $1 in
   gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
 esac
 
-if [ "x`lsb_release -c -s`" = "xxenial" -a "x$COMPILER" = "xclang" ]; then
+test -e /etc/os-release && . /etc/os-release
+
+if [ "x${VERSION_CODENAME:-}" = "xxenial" -a "x$COMPILER" = "xclang" ]; then
 	# hack: build on xenial fails with ccache and clang
 	no_ccache=true
 fi
