@@ -1,0 +1,86 @@
+#!/bin/bash -l
+
+COMPILER=${COMPILER:-gcc}
+echo "revno: $GIT_COMMIT"
+export LANG=${LANG:-C}
+export CCACHE_COMPRESS=true
+
+while getopts "hj:n-" optchar; do
+  case "${optchar}" in
+    j) export pjobs="-j${OPTARG}" ;;
+    n) no_ccache=true ;;
+    -) break ;;
+  esac
+done
+shift $((OPTIND -1))
+
+case $1 in
+  gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
+esac
+
+test -e /etc/os-release && . /etc/os-release
+
+if [ "x${VERSION_CODENAME:-}" = "xxenial" -a "x$COMPILER" = "xclang" ]; then
+	# hack: build on xenial fails with ccache and clang
+	no_ccache=true
+fi
+
+case "$COMPILER" in
+  gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
+  egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
+  clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
+  icc) CC="icc"; CXX="icpc";;
+  *) echo "Unknown COMPILER set, aborting"; exit 1;;
+esac
+
+# custom command paths 
+for extrapath in \
+  /home/jenkins/bin \
+  /opt/rh/devtoolset-2/root/usr/bin
+do
+  test -d "$extrapath" && export PATH="$extrapath:$PATH"
+done
+
+# for dir in $(dirname $(type -path $CC)) /usr/bin /usr/local/bin
+# do
+#   if [ -x "$dir/$CC" ]; then
+#     CC="$dir/$CC"
+#     CXX="$dir/$CXX"
+#     break
+#   fi
+# done
+
+for cc in `type -path ccache` /usr/bin/ccache /usr/local/bin/ccache
+do
+  if [ -x $cc ]; then
+    ccache_bin="$cc "
+    break
+  fi
+done
+
+
+if [ "$COMPILER" != "icc" -a -z "${no_ccache}" ]
+then
+   CC="${ccache_bin}${CC}"
+   CXX="${ccache_bin}${CXX}"
+fi
+export CC CXX
+
+# cache file . will be ignored unless we received as argument --aggressively-use-config-cache
+config_cache_dir=$HOME/lib/config-cache
+test -d $config_cache_dir || mkdir -p $config_cache_dir
+cache_file=$config_cache_dir/config-$(uname -m)-${OS:-${HOSTNAME:-generic}}-${COMPILER}.cache
+export cache_file
+
+SECONDS=0
+echo "***** Start time: $(date) *****"
+nice ./test-builds.sh $@
+result=$?
+if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
+  (cd libltdl; autoreconf -fi)
+  nice ./test-builds.sh $@
+else
+  exit $result
+fi
+minutes=$(( $SECONDS / 60 ))
+echo "***** End time: $(date) ($minutes minutes wall time) *****"
