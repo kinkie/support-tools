@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
-# args: --force, --build
-# compilers: --clang, --icc
-## TODO: add --quiet
 
 read -d '' helpmsg <<_EOF
 options:
-	--ecap : build ecap
-	--no-opt : do not optimize
-	--force : force autoconf bootstrap
-	--all : configure and build
-	--compiler <gcc,clang>
-	--icc
-	--no-ccache
-	--log <file> : log output to <file>
-	--help
-	--ring : ring at end of build
-	--parallel <#>
-	--dir <dir> : use <dir> as build directory
-	--in <distro> : use docker image distro to do the build
-	--pass <arg> : argument passthrough
-	--clean
-	--revno <revision>
-	--layer <layer> : support shortcuts (e.g. --layer 02)
-	--continue : do not stop on make errors
-	--quiet
-	--translate : do translations
+  --clean : clean workspace AFTER build
+  --clean-before : clean workspace BEFORE build
+  --compiler <gcc,clang>
+  --continue : do not stop on make errors
+  --dir <dir> : use <dir> as build directory
+  --do-all : configure and build
+  --do-bootstrap : do autoconf bootstrap
+  --do-build : build stage (default: no)
+  --do-build: do build step
+  --do-configure : do configure stage
+  --ecap : build ecap
+  --help
+  --icc
+  --in <distro> : use docker image distro to do the build
+  --layer <layer> : support shortcuts (e.g. --layer 02)
+  --log <file> : log output to <file>
+  --no-ccache
+  --no-opt : do not optimize
+  --parallel <#>
+  --pass <arg> : argument passthrough
+  --quiet
+  --revno <revision>
+  --ring : ring at end of build
+  --translate : do translations
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
@@ -33,7 +34,8 @@ onexit() {
 	rm "$envfile"
 }
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet --options fbc:inl:j:hrd:q -- "$@")
+# TODO: make do-* argument optionally take a "no" argument
+opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -50,13 +52,13 @@ while true; do
       export CFLAGS="$CFLAGS -O0 -g"
       export CXXFLAGS="$CXXFLAGS -O0 -g"
       shift ;;
-    -f|--force) force_bootstrap="yes"; shift;;
-    --all) do_configure="yes"; do_build="yes"; shift;;
-    --configure) do_configure="yes"; shift;;
-    -b|--build) do_build="yes"; shift;;
+    --do-bootstrap) do_bootstrap="yes"; shift;;
+    -a|--do-all) do_bootstrap="yes"; do_configure="yes"; do_build="yes"; shift;;
+    --do-configure) do_configure="yes"; shift;;
+    --do-build) do_build="yes"; shift;;
     -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
     --clang) CC="clang"; CXX="clang++"; shift;;
-    -i|--icc) CC="icc"; CXX="icpc"; shift;;
+    --icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "$helpmsg"; exit 0;;
@@ -65,12 +67,14 @@ while true; do
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
     --pass) extraargs="$2"; shift 2;;
-    --clean) do_clean=true; shift;;
+    --clean-before) do_clean_before="yes"; shift;;
+    --clean) do_clean_after="yes"; shift;;
     --revno) revno="$2"; shift 2;;
     --layer) layer="$2"; shift 2;;
-    --continue) makeflags="-k"; shift;;
+    -k|--continue) makeflags="-k"; shift;;
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
+    --stage) dtages="$2"; shift 2;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -175,7 +179,7 @@ if [ "x$ccache" != "xno" ]; then
 fi
 
 #clean
-if [ -n "$do_clean" -a -f test-builds.sh ]; then
+if [ -n "$do_clean_before" -a -f test-builds.sh ]; then
   touch foo.o
   find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
   for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
@@ -218,7 +222,7 @@ do
 done
 
 # configure
-if [ ! -e configure -o "x$force_bootstrap" = "xyes" ]; then
+if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
     ${dockercmd} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
@@ -244,6 +248,10 @@ fi
 
 if [ -n "$logfile" ]; then
     tail -n 1 "$srcdir/$logfile" >&3
+fi
+
+if [ -n "$do_clean_after" ]; then
+  ${dockercmd} bash -c "make distclean"
 fi
 
 if [ "$do_ring" = "true" ]; then
