@@ -9,7 +9,6 @@ options:
   --dir <dir> : use <dir> as build directory
   --do-all : configure and build
   --do-bootstrap : do autoconf bootstrap
-  --do-build : build stage (default: no)
   --do-build: do build step
   --do-configure : do configure stage
   --ecap : build ecap
@@ -238,7 +237,7 @@ fi
 
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
-    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
     ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 fi
 
@@ -247,7 +246,7 @@ if [ "x$do_build" = "xyes" ]; then
 fi
 
 if [ -n "$logfile" ]; then
-    tail -n 1 "$srcdir/$logfile" >&3
+    tail -n 1 "$logfile" >&3
 fi
 
 if [ -n "$do_clean_after" ]; then
