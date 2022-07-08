@@ -17,6 +17,7 @@ options:
   --in <distro> : use docker image distro to do the build
   --layer <layer> : support shortcuts (e.g. --layer 02)
   --log <file> : log output to <file>
+  --mingw : build in a mingw environment
   --no-ccache
   --no-opt : do not optimize
   --parallel <#>
@@ -29,7 +30,7 @@ _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -69,6 +70,7 @@ while true; do
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
+    --mingw) export host_alias="x86_64-w64-mingw32"; distro="ubuntu-focal-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
