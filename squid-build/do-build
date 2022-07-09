@@ -40,6 +40,8 @@ makeflags="-w"
 quiet=""
 do_translate="no"
 
+test -n "$VSCODE_IPC_HOOK_CLI" && makeflags="$makeflags -w"
+
 while true; do
   case "$1" in
     --ecap) ECAP_CONFIGURE_FLAGS="--enable-ecap=yes"; shift;;
@@ -58,7 +60,10 @@ while true; do
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -j|--parallel) parallel="-j $2 --output-sync=recurse "; shift 2;;
+    -j|--parallel) 
+	    parallel="-j $2"; 
+	    test -n "$VSCODE_IPC_HOOK_CLI" && parallel="$parallel --output-sync=recurse "
+	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
     --pass) extraargs="$2"; shift 2;;
