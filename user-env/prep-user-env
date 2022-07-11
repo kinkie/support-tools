@@ -25,8 +25,9 @@ mkdir -v -m 700 ~/.ssh
 install_config ssh-config ~/.ssh/config
 
 install_config bash_profile ~/.bash_profile
-test -e ~/.bashrc && mv ~/.bashrc ~/.bashrc.local
-install_connfig bashrc ~/.bashrc
+#test -e ~/.bashrc && mv ~/.bashrc ~/.bashrc.local
+install_connfig bashrc ~/.bashrc.local
+echo 'test -e ~/.bashrc.local && . ~/.bashrc.local' >>~/.bashrc
 
 if [ -x /usr/bin/systemctl ]; then
 	echo "preparing ssh-agent service"
