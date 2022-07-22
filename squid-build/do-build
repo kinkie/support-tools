@@ -36,11 +36,12 @@ eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
-makeflags="-w"
+makeflags=""
 quiet=""
 do_translate="no"
+in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
 
-test -n "$VSCODE_IPC_HOOK_CLI" && makeflags="$makeflags -w"
+test -n "$in_vscode" && makeflags="$makeflags -w"
 
 while true; do
   case "$1" in
@@ -62,7 +63,7 @@ while true; do
     -r|--ring) do_ring=true; shift;;
     -j|--parallel) 
 	    parallel="-j $2"; 
-	    test -n "$VSCODE_IPC_HOOK_CLI" && parallel="$parallel --output-sync=recurse "
+	    test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
 	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
@@ -75,7 +76,7 @@ while true; do
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
-    --mingw) export host_alias="x86_64-w64-mingw32"; distro="ubuntu-focal-mingw" ; shift;;
+    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++; distro="ubuntu-focal-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -194,8 +195,9 @@ if [ -n "$revno" ]; then
   git checkout -r$revno
 fi
 
+export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e host_alias"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias"
     dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-$(uname -m)-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-$(uname -m)-${distro}"
 else
@@ -222,12 +224,12 @@ if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
 
+srcdir=$PWD
 if [ -n "$builddir" ]; then
   if [ ! -d "$builddir" ]; then
     echo "Creating build dir $builddir"
     mkdir -p $builddir
   fi
-  srcdir=$PWD
   cd $builddir
 fi
 
@@ -239,6 +241,7 @@ fi
 
 if [ "x$do_build" = "xyes" ]; then
     ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi"
+#    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi | sed -e 's!${srcdir}/!!g'"
 fi
 
 if [ -n "$logfile" ]; then
