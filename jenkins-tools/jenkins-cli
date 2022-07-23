@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# to prepare: add your ssh public keys to
+# https://build.squid-cache.org/me/configure
+
+if [ -t 1 ]; then
+    LESSCMD="less"
+fi
+
+exec ssh -p 8022 build.squid-cache.org $@ 2>&1 | ${LESSCMD:-cat}
