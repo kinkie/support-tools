@@ -17,6 +17,7 @@ options:
   --in <distro> : use docker image distro to do the build
   --layer <layer> : support shortcuts (e.g. --layer 02)
   --log <file> : log output to <file>
+  --mingw : build in a mingw environment
   --no-ccache
   --no-opt : do not optimize
   --parallel <#>
@@ -28,21 +29,18 @@ options:
 _EOF
 test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-envfile=`mktemp`
-onexit() {
-	rm "$envfile"
-}
-
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
-makeflags=""
+makeflags="-w"
 quiet=""
 do_translate="no"
+
+test -n "$VSCODE_IPC_HOOK_CLI" && makeflags="$makeflags -w"
 
 while true; do
   case "$1" in
@@ -62,7 +60,10 @@ while true; do
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -j|--parallel) parallel="-j $2 "; shift 2;;
+    -j|--parallel) 
+	    parallel="-j $2"; 
+	    test -n "$VSCODE_IPC_HOOK_CLI" && parallel="$parallel --output-sync=recurse "
+	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
     --pass) extraargs="$2"; shift 2;;
@@ -74,6 +75,7 @@ while true; do
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
+    --mingw) export host_alias="x86_64-w64-mingw32"; distro="ubuntu-focal-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -193,9 +195,12 @@ if [ -n "$revno" ]; then
 fi
 
 if [ -n "${distro:-}" ]; then
-    dockercmd="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} --env-file $envfile squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e host_alias"
+    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-$(uname -m)-${distro}"
 else
     dockercmd=""
+    dockercmd_bootstrap=""
 fi
 
 #macos hacks
@@ -211,19 +216,10 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
   # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
-# set up environment variables in the container
-test -n "$CC" && export CC CXX
-for var in CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-do
-	test -n "${!var}" || continue
-	echo "$var=${!var}" >>$envfile
-	echo "ENV: $var='${!var}'"
-done
-
 # configure
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
-    ${dockercmd} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
+    ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
 
 if [ -n "$builddir" ]; then
@@ -231,7 +227,7 @@ if [ -n "$builddir" ]; then
     echo "Creating build dir $builddir"
     mkdir -p $builddir
   fi
-  srcdir=$(pwd)
+  srcdir=$PWD
   cd $builddir
 fi
 
@@ -242,7 +238,7 @@ if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
 fi
 
 if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "if make ${parallel} ${continue} all && make ${parallel} ${continue} check ; then echo Success; else make all check || echo Failure ; fi"
+    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi"
 fi
 
 if [ -n "$logfile" ]; then
