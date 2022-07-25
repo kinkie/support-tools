@@ -76,7 +76,7 @@ while true; do
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
-    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++; distro="ubuntu-focal-mingw" ; shift;;
+    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ BUILD_WITH_SSL="--disable-ssl --without-openssl" ; distro="ubuntu-focal-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
