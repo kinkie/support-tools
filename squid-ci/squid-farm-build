@@ -26,14 +26,17 @@ if [ "x${VERSION_CODENAME:-}" = "xxenial" -a "x$COMPILER" = "xclang" ]; then
 	no_ccache=true
 fi
 
-case "$COMPILER" in
-  gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
-  egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
-  clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
-  icc) CC="icc"; CXX="icpc";;
-  *) echo "Unknown COMPILER set, aborting"; exit 1;;
-esac
+set_compiler_variables() {
+    case "$COMPILER" in
+      gcc*) CC="gcc${COMPILER#gcc}"; CXX="g++${COMPILER#gcc}";;
+      egcc*) CC="egcc${COMPILER#egcc}"; CXX="eg++${COMPILER#egcc}";;
+      clang*) CC="clang${COMPILER#clang}"; CXX="clang++${COMPILER#clang}";;
+      icc) CC="icc"; CXX="icpc";;
+      *) echo "Unknown COMPILER set, aborting"; exit 1;;
+    esac
+}
 
+set_compiler_variables
 # custom command paths 
 for extrapath in \
   /home/jenkins/bin \
@@ -80,8 +83,14 @@ result=$?
 if [ $result -gt 0 ] && grep -q 'You should only need it if you modified' btlayer-00-default.log ; then
   (cd libltdl; autoreconf -fi)
   nice ./test-builds.sh $@
-else
-  exit $result
+  result=$?
 fi
+# let's retry without ccache
+if [  $result -gt 0  -a -z "$no_ccache" ] ; then
+    set_compiler_variables # no ccache
+    nice ./test-builds.sh $@
+    result=$?
+fi
+
 minutes=$(( $SECONDS / 60 ))
 echo "***** End time: $(date) ($minutes minutes wall time) *****"
