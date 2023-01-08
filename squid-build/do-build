@@ -27,7 +27,12 @@ options:
   --ring : ring at end of build
   --translate : do translations
 _EOF
-test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
+
+for path in /opt/homebrew/opt/gnu-getopt/bin /usr/local/bin
+do
+  test -x $path/getopt && GETOPT=$path/getopt
+  break
+done
 
 # TODO: make do-* argument optionally take a "no" argument
 opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
@@ -61,8 +66,8 @@ while true; do
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -j|--parallel) 
-	    parallel="-j $2"; 
+    -j|--parallel)
+	    parallel="-j $2";
 	    test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
 	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
@@ -163,6 +168,19 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-strict-error-checking \
 	${po2html_cmd} \
         "
+# macos hacks
+if which brew >/dev/null 
+then
+    for dir in /opt/homebrew /opt/homebrew/opt/openssl@3 /usr/local 
+    do
+        test -d $dir/lib && LDFLAGS="$LDFLAGS -L$dir/lib"
+        test -d $dir/include && CPPFLAGS="$CPPFLAGS -I$dir/include"
+    done
+    if gcc --version | grep -q clang
+    then
+        CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
+    fi    
+fi
 
 if [ -n "$layer" ]; then
     for layerdir in test-suite/buildtests `dirname $0`; do
