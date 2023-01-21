@@ -1,6 +1,7 @@
 #!/bin/bash
 
-docker ps | grep -v -F -e buildx -e CONTAINER | grep 'Up \d+ days' | xargs -r docker kill
+docker ps | grep -v -F -e buildx -e CONTAINER | grep 'Up [0-9]\+ \(days\|weeks\)' | awk '{print $1}' | xargs -r docker kill
+docker ps | grep -v -F -e buildx -e CONTAINER | grep 'Up [0-9]\+ \(days\|weeks\)' | awk '{print $1}' | xargs -r docker rm
 docker images | grep -v -F -e '<none>' -e REPOSITORY | awk '{print $1 ":" $2 }' | xargs -r docker rmi
 docker images | grep -F -e '<none>' | awk '{print $3}' | xargs -r docker rmi
 docker image prune -f
