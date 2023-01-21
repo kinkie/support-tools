@@ -1,15 +1,41 @@
 #!/usr/bin/env bash
-# args: --force, --build
-# compilers: --clang, --icc
-## TODO: add --quiet
 
 read -d '' helpmsg <<_EOF
-options: dir, force, build, clang, icc, no-ccache, log=file, layer=layer, continue,
-         ring, parallel=#, clean, revno, no-opt, ecap, help
+options:
+  --clean : clean workspace AFTER build
+  --clean-before : clean workspace BEFORE build
+  --compiler <gcc,clang>
+  --continue : do not stop on make errors
+  --dir <dir> : use <dir> as build directory
+  --do-all : configure and build
+  --do-bootstrap : do autoconf bootstrap
+  --do-build: do build step
+  --do-configure : do configure stage
+  --ecap : build ecap
+  --help
+  --icc
+  --in <distro> : use docker image distro to do the build
+  --layer <layer> : support shortcuts (e.g. --layer 02)
+  --log <file> : log output to <file>
+  --mingw : build in a mingw environment
+  --no-ccache
+  --no-opt : do not optimize
+  --parallel <#>
+  --pass <arg> : argument passthrough
+  --quiet
+  --revno <revision>
+  --ring : ring at end of build
+  --translate : do translations
 _EOF
-test -e /usr/local/bin/getopt && GETOPT=/usr/local/bin/getopt
 
-opt=$(${GETOPT:-getopt} --longoptions clean,revno:,force,configure,build,all,clang,icc,no-ccache,no-opt,log:,parallel:,help,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet --options fbc:inl:j:hrd:q -- "$@")
+for path in /opt/homebrew/opt/gnu-getopt/bin /usr/local/bin
+do
+  test -x $path/getopt && GETOPT=$path/getopt
+  break
+done
+
+# TODO: make do-* argument optionally take a "no" argument
+opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -17,6 +43,10 @@ CC=${CC:-gcc}
 CXX=${CXX:-g++}
 makeflags=""
 quiet=""
+do_translate="no"
+in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
+
+test -n "$in_vscode" && makeflags="$makeflags -w"
 
 while true; do
   case "$1" in
@@ -25,26 +55,33 @@ while true; do
       export CFLAGS="$CFLAGS -O0 -g"
       export CXXFLAGS="$CXXFLAGS -O0 -g"
       shift ;;
-    -f|--force) force_bootstrap="yes"; shift;;
-    --all) do_configure="yes"; do_build="yes"; shift;;
-    --configure) do_configure="yes"; shift;;
-    -b|--build) do_build="yes"; shift;;
+    --do-bootstrap) do_bootstrap="yes"; shift;;
+    -a|--do-all) do_bootstrap="yes"; do_configure="yes"; do_build="yes"; shift;;
+    --do-configure) do_configure="yes"; shift;;
+    --do-build) do_build="yes"; shift;;
     -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
     --clang) CC="clang"; CXX="clang++"; shift;;
-    -i|--icc) CC="icc"; CXX="icpc"; shift;;
+    --icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
     -l|--log) logfile="$2" ; shift 2;;
-    -h|--help) echo $helpmsg; exit 0;;
+    -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
-    -j|--parallel) parallel="-j $2 "; shift 2;;
+    -j|--parallel)
+	    parallel="-j $2";
+	    test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
+	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
     --pass) extraargs="$2"; shift 2;;
-    --clean) do_clean=true; shift;;
+    --clean-before) do_clean_before="yes"; shift;;
+    --clean) do_clean_after="yes"; shift;;
     --revno) revno="$2"; shift 2;;
     --layer) layer="$2"; shift 2;;
-    --continue) makeflags="-k"; shift;;
+    -k|--continue) makeflags="-k"; shift;;
     -q|--quiet) quiet=">/dev/null"; shift;;
+    --translate) do_translate="yes"; shift;;
+    --stage) dtages="$2"; shift 2;;
+    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ BUILD_WITH_SSL="--disable-ssl --without-openssl" ; distro="ubuntu-focal-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -59,6 +96,11 @@ if [ -n "$logfile" ]; then
   fi
   exec 2>&1
 fi
+
+if [ "$do_translate" = "no" ]; then
+  po2html_cmd="--with-po2html=off --with-po2txt=off"
+fi
+
 
 # the default
 DISTCHECK_CONFIGURE_FLAGS=" \
@@ -124,7 +166,21 @@ DISTCHECK_CONFIGURE_FLAGS=" \
         --with-pthreads \
         --disable-arch-native \
         --enable-strict-error-checking \
+	${po2html_cmd} \
         "
+# macos hacks
+if which brew >/dev/null 
+then
+    for dir in /opt/homebrew /opt/homebrew/opt/openssl@3 /usr/local 
+    do
+        test -d $dir/lib && LDFLAGS="$LDFLAGS -L$dir/lib"
+        test -d $dir/include && CPPFLAGS="$CPPFLAGS -I$dir/include"
+    done
+    if gcc --version | grep -q clang
+    then
+        CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
+    fi    
+fi
 
 if ls btlayer* >/dev/null 2>&1 ; then
   chmod -R u+w btlayer*
@@ -148,7 +204,7 @@ if [ "x$ccache" != "xno" ]; then
 fi
 
 #clean
-if [ -n "$do_clean" -a -f test-builds.sh ]; then
+if [ -n "$do_clean_before" -a -f test-builds.sh ]; then
   touch foo.o
   find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
   for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
@@ -162,10 +218,14 @@ if [ -n "$revno" ]; then
   git checkout -r$revno
 fi
 
+export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd="docker run -ti --rm -u $USER -v $HOME:$HOME -w $PWD/${builddir:-} -v ccache-${distro}:$HOME/.ccache -h build-${distro} squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias"
+    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-$(uname -m)-${distro}"
 else
     dockercmd=""
+    dockercmd_bootstrap=""
 fi
 
 #macos hacks
@@ -181,35 +241,38 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
   # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
-if [ ! -e configure -o "x$force_bootstrap" = "xyes" ]; then
+# configure
+if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
-    ./bootstrap.sh
-    echo "adjusting libltdl"
-    (cd libltdl; autoreconf -fi)
+    ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
 
+srcdir=$PWD
 if [ -n "$builddir" ]; then
   if [ ! -d "$builddir" ]; then
     echo "Creating build dir $builddir"
     mkdir -p $builddir
   fi
-  srcdir=$(pwd)
   cd $builddir
 fi
 
 
-test -n "$CC" && export CC CXX
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
-    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
     ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
 fi
 
 if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "if make ${parallel} ${continue} all && make ${parallel} ${continue} check ; then echo Success; else echo Failed; fi"
+    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi"
+#    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi | sed -e 's!${srcdir}/!!g'"
 fi
 
 if [ -n "$logfile" ]; then
-    tail -n 1 "$srcdir/$logfile" >&3
+    tail -n 1 "$logfile" >&3
+fi
+
+if [ -n "$do_clean_after" ]; then
+  ${dockercmd} bash -c "make distclean"
 fi
 
 if [ "$do_ring" = "true" ]; then
