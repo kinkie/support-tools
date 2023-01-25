@@ -221,8 +221,8 @@ fi
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
     dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias"
-    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-$(uname -m)-${distro}"
-    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-${distro}"
+    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-${distro}"
 else
     dockercmd=""
     dockercmd_bootstrap=""
