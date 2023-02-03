@@ -230,15 +230,23 @@ fi
 
 #macos hacks
 if [ "x$(uname -s)" = "xDarwin" ]; then
-  export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/openssl/include -I/usr/local/include"
+  for prefix in /usr/local /opt/homebrew
+  do
+    for library in openssl openldap
+    do
+      p="$prefix/opt/$library"
+      if [ -e "$p/include" ]; then
+        echo "Adding $p/include"
+        export CPPFLAGS="$CPPFLAGS -I$p/include"
+      fi
+      if [ -e "$p/lib" ]; then
+        echo "Adding $p/lib"
+        export LDFLAGS="$LDFLAGS -L$p/lib"
+      fi
+    done
+  done
   export CXXFLAGS="$CXXFLAGS -Wno-deprecated-declarations"
-  export LDFLAGS="$LDFLAGS -L/usr/local/lib -L/usr/local/opt/openssl/lib -lresolv -lssl -lcrypto"
   export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
-  if [ -d /usr/local/opt/openldap ]; then
-      export LDFLAGS="${LDFLAGS} -L/usr/local/opt/openldap/lib"
-      export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/openldap/include"
-  fi
-  # BUILD_WITH_SSL="--disable-ssl --without-openssl"
 fi
 
 # configure
