@@ -41,10 +41,22 @@ eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
+MAKE=${MAKE:-make}
+ECHO=${ECHO:-echo}
 makeflags=""
 quiet=""
 do_translate="no"
 in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
+
+if which gmake >/dev/null 2>&1 ; then
+    MAKE=gmake
+    echo "make -> gmake"
+fi
+
+if which gecho >/dev/null 2>&1 ; then
+    export ECHO=gecho
+    echo "echo -> gecho"
+fi
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
 
