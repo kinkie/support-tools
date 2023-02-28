@@ -94,3 +94,5 @@ fi
 
 minutes=$(( $SECONDS / 60 ))
 echo "***** End time: $(date) ($minutes minutes wall time) *****"
+
+exit $result
