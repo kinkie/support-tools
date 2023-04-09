@@ -93,6 +93,6 @@ if [  $result -gt 0  -a -z "$no_ccache" ] ; then
 fi
 
 minutes=$(( $SECONDS / 60 ))
-echo "***** End time: $(date) ($minutes minutes wall time on $(hostname)) *****"
+echo "***** End time: $(date) ($minutes minutes wall time on ${NODE_NAME:-$HOSTNAME}) *****"
 
 exit $result
