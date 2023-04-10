@@ -15,6 +15,7 @@ options:
   --help
   --icc
   --in <distro> : use docker image distro to do the build
+  --platform <amd64|i386|aarch64|armv7l>: what CPU platform to use
   --layer <layer> : support shortcuts (e.g. --layer 02)
   --log <file> : log output to <file>
   --mingw : build in a mingw environment
@@ -45,8 +46,24 @@ makeflags=""
 quiet=""
 do_translate="no"
 in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
+export SUSE_ASNEEDED=0
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
+
+# translates conventional platforms onto the form docker likes
+# (e.g. x86_64 -> amd64). Argument is the platform name, returns
+# normalized platform to stdout
+normalize_platform() {
+    case "$1" in
+    amd64|i386) echo "$1";;
+    x86_64) echo "amd64";;
+    i686) echo "i386";;
+    aarch64) echo "arm64/v8";;
+    armv7l) echo "arm/v7";;
+    *) echo "unrecognised platform: $1" >2; exit 1;;
+    esac
+}
+platform=$(normalize_platform $(uname -p))
 
 while true; do
   case "$1" in
@@ -72,6 +89,7 @@ while true; do
 	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
+    --platform) platform=$(normalize_platform "$2");;
     --pass) extraargs="$2"; shift 2;;
     --clean-before) do_clean_before="yes"; shift;;
     --clean) do_clean_after="yes"; shift;;
@@ -220,7 +238,7 @@ fi
 
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e SUSE_ASNEEDED --platform ${platform}"
     dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-${distro}"
 else
@@ -259,7 +277,7 @@ fi
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
 fi
 
 if [ "x$do_build" = "xyes" ]; then
