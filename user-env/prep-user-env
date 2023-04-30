@@ -29,6 +29,12 @@ install_config bash_profile ~/.bash_profile
 install_connfig bashrc ~/.bashrc.local
 echo 'test -e ~/.bashrc.local && . ~/.bashrc.local' >>~/.bashrc
 
+if test -n "`which gpg`"; then
+    gpg --decrypt $configsdir/gnupg.tar.gpg | (cd $HOME; tar xvf -)
+else
+    touch ~/00-please-intall-gpg-and-keyring
+fi
+
 if [ -x /usr/bin/systemctl ]; then
 	echo "preparing ssh-agent service"
 	install_config ssh-agent.service ~/.config/systemd/user/ssh-agent.service
