@@ -6,7 +6,7 @@
         {
             "type": "shell",
             "label": "make all",
-            "command": "~/bin/make-adapter",
+            "command": "make",
             "args": [
                 "-w",
                 "-j",
