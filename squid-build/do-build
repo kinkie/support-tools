@@ -113,7 +113,7 @@ while true; do
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
     --stagger) stagger="$2"; shift 2;;
-    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ BUILD_WITH_SSL="--disable-ssl --without-openssl" ; distro="ubuntu-focal-mingw" ; shift;;
+    --mingw) export host_alias="x86_64-w64-mingw32" BUILDCXX=g++ BUILDCXXFLAGS=-DFOO BUILD_WITH_SSL="--disable-ssl --without-openssl" ; distro="ubuntu-mingw" ; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -257,7 +257,7 @@ fi
 
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e SUSE_ASNEEDED --platform ${platform}"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
     dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-${distro}"
 else
