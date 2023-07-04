@@ -15,6 +15,7 @@ options:
   --help
   --icc
   --in <distro> : use docker image distro to do the build
+  --platform <amd64|i386|aarch64|armv7l>: what CPU platform to use
   --layer <layer> : support shortcuts (e.g. --layer 02)
   --log <file> : log output to <file>
   --mingw : build in a mingw environment
@@ -28,6 +29,7 @@ options:
   --revno <revision>
   --ring : ring at end of build
   --translate : do translations
+  --stagger <seconds>: wait for a random time up to <seconds> before start
 _EOF
 
 for path in /opt/homebrew/opt/gnu-getopt/bin /usr/local/bin
@@ -37,7 +39,7 @@ do
 done
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -49,6 +51,7 @@ makeflags=""
 quiet=""
 do_translate="no"
 in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
+export SUSE_ASNEEDED=0
 
 if which gmake >/dev/null 2>&1 ; then
     MAKE=gmake
@@ -61,6 +64,21 @@ if which gecho >/dev/null 2>&1 ; then
 fi
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
+
+# translates conventional platforms onto the form docker likes
+# (e.g. x86_64 -> amd64). Argument is the platform name, returns
+# normalized platform to stdout
+normalize_platform() {
+    case "$1" in
+    amd64|i386) echo "$1";;
+    x86_64) echo "amd64";;
+    i686) echo "i386";;
+    aarch64) echo "arm64/v8";;
+    armv7l) echo "arm/v7";;
+    *) echo "unrecognised platform: $1" >2; exit 1;;
+    esac
+}
+platform=$(normalize_platform $(uname -p))
 
 while true; do
   case "$1" in
@@ -87,6 +105,7 @@ while true; do
 	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
+    --platform) platform=$(normalize_platform "$2");;
     --pass) extraargs="$2"; shift 2;;
     --clean-before) do_clean_before="yes"; shift;;
     --clean) do_clean_after="yes"; shift;;
@@ -96,11 +115,18 @@ while true; do
     -q|--quiet) quiet=">/dev/null"; shift;;
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
-    --mingw) export host_alias="x86_64-w64-mingw32" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ BUILD_WITH_SSL="--disable-ssl --without-openssl" ; distro="ubuntu-focal-mingw" ; shift;;
+    --stagger) stagger="$2"; shift 2;;
+    --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO BUILD_WITH_SSL="--disable-ssl --without-openssl" distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --host=x86_64-w64-mingw32" mingw="yes"; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
 done
+
+if [ -n "$stagger" ]; then
+    timewait=$(( $RANDOM % $stagger))
+    echo "Waiting for $timewait seconds before start"
+    sleep $timewait
+fi
 
 exec 3>&1
 if [ -n "$logfile" ]; then
@@ -120,7 +146,6 @@ fi
 # the default
 DISTCHECK_CONFIGURE_FLAGS=" \
         --enable-loadable-modules \
-        --disable-gnuregex \
         --enable-optimizations \
         --enable-inline \
         --enable-debug-cbdata \
@@ -216,6 +241,7 @@ fi
 if [ "x$ccache" != "xno" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
+#  test -n "$BUILDCXX" && BUILDCXX="ccache $BUILDCXX"
 fi
 
 #clean
@@ -233,11 +259,16 @@ if [ -n "$revno" ]; then
   git checkout -r$revno
 fi
 
+if [ "x$mingw" = "xyes" ]; then
+# mingw must not specify CC and CXX
+    unset CC CXX
+fi
+
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias"
-    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-$(uname -m)-${distro}"
-    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-$(uname -m)-${distro}"
+    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
+    dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-${distro}"
+    dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-${distro}"
 else
     dockercmd=""
     dockercmd_bootstrap=""
@@ -282,12 +313,11 @@ fi
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
 fi
 
 if [ "x$do_build" = "xyes" ]; then
     ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi"
-#    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi | sed -e 's!${srcdir}/!!g'"
 fi
 
 if [ -n "$logfile" ]; then
