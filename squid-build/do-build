@@ -19,6 +19,8 @@ options:
   --log <file> : log output to <file>
   --mingw : build in a mingw environment
   --no-ccache
+  --no-ccache-on-rebuild: if a matrix reloaded rebuild is detected,
+            do not use ccache
   --no-opt : do not optimize
   --parallel <#>
   --pass <arg> : argument passthrough
@@ -35,7 +37,7 @@ do
 done
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -75,6 +77,7 @@ while true; do
     --clang) CC="clang"; CXX="clang++"; shift;;
     --icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
+    --no-ccache-on-rebuild) if [ -n "$REBUILD" ]; then ccache="no"; export CCACHE_DISABLE=1; fi; shift;;
     -l|--log) logfile="$2" ; shift 2;;
     -h|--help) echo "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
