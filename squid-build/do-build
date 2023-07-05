@@ -263,7 +263,8 @@ fi
 
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 if [ -n "${distro:-}" ]; then
-    dockercmd_base="docker run -ti --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
+    which tty >/dev/null && tty >/dev/null && inatty="-ti"
+    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -w $PWD/${builddir:-} -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
     dockercmd="${dockercmd_base} -w $PWD/${builddir:-} squidcache/buildfarm-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $PWD squidcache/buildfarm-${distro}"
 else
@@ -311,10 +312,12 @@ fi
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
     ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+    result=$?
 fi
 
-if [ "x$do_build" = "xyes" ]; then
-    ${dockercmd} bash -c "if make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check ; then echo Success; else make ${makeflags} all check || echo Failure ; fi"
+if [ "x$result" = "x0" -a "x$do_build" = "xyes" ]; then
+    ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
+    result=$?
 fi
 
 if [ -n "$logfile" ]; then
@@ -328,3 +331,5 @@ fi
 if [ "$do_ring" = "true" ]; then
   echo -n "" >&3
 fi
+
+exit $result
