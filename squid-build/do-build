@@ -238,7 +238,7 @@ if [ -n "$layer" ]; then
     done
 fi
 
-if [ "x$ccache" != "xno" ]; then
+if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
 #  test -n "$BUILDCXX" && BUILDCXX="ccache $BUILDCXX"
@@ -313,8 +313,9 @@ fi
 
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
-    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+    display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
+    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
     result=$?
 fi
 
