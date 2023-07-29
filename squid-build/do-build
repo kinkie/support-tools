@@ -16,7 +16,7 @@ options:
   --icc
   --in <distro> : use docker image distro to do the build
   --platform <amd64|i386|aarch64|armv7l>: what CPU platform to use
-  --layer <layer> : support shortcuts (e.g. --layer 02)
+  --layer <layer> : support shortcuts (e.g. --layer 02) . use "all" to test all layers
   --log <file> : log output to <file>
   --mingw : build in a mingw environment
   --no-ccache
@@ -222,27 +222,34 @@ then
     fi    
 fi
 
+if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
+  CC="ccache $CC"
+  CXX="ccache $CXX"
+fi
+
+if [ -n "$revno" ]; then
+  echo "Switching to revision $revno"
+  git checkout -r$revno
+fi
+
 if ls btlayer* >/dev/null 2>&1 ; then
   chmod -R u+w btlayer*
   rm -rf btlayer*
 fi
 
-if [ -n "$layer" ]; then
+if [ "x$layer" = "xall" ] ; then
+    layers="$(ls test-suite/buildtests/layer*opts)"
+elif [ -n "$layer" ]; then
     for layerdir in test-suite/buildtests `dirname $0`; do
         f=`ls $layerdir/*$layer* 2>/dev/null`
         if [ -n "$f" -a -e "$f" ]; then
             echo "using layer: $f"
-            . $f
+            layers="$f"
             break
         fi
     done
 fi
-
-if [ "x$ccache" != "xno" ]; then
-  CC="ccache $CC"
-  CXX="ccache $CXX"
-#  test -n "$BUILDCXX" && BUILDCXX="ccache $BUILDCXX"
-fi
+# $layers is now a list of full paths to layer files
 
 #clean
 if [ -n "$do_clean_before" -a -f test-builds.sh ]; then
@@ -252,11 +259,6 @@ if [ -n "$do_clean_before" -a -f test-builds.sh ]; then
     test -d $dir && rm  -rf $dir
   done
   git clean -fxd
-fi
-
-if [ -n "$revno" ]; then
-  echo "Switching to revision $revno"
-  git checkout -r$revno
 fi
 
 if [ "x$mingw" = "xyes" ]; then
@@ -311,6 +313,17 @@ if [ -n "$builddir" ]; then
   cd $builddir
 fi
 
+# bug: this is the layer name. Need to source the layer file
+for l in $layers
+do
+    echo "using layer $(basename $l)"
+    . "$l"
+    if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
+        display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
+        echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+        result=$?
+    fi
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
