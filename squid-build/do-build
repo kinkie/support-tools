@@ -318,7 +318,7 @@ if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     result=$?
 fi
 
-if [ "x$result" = "x0" -a "x$do_build" = "xyes" ]; then
+if [ "x$do_build" = "xyes" -a "${result:-0}" -eq 0 ]; then
     ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
     result=$?
 fi
