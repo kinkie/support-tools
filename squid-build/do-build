@@ -304,13 +304,13 @@ if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
 
-srcdir=$PWD
-if [ -n "$builddir" ]; then
-  if [ ! -d "$builddir" ]; then
+srcdir="$PWD"
+if [ -n "$builddir" ] ; then
+  if [ ! -d "$builddir" ] ; then
     echo "Creating build dir $builddir"
-    mkdir -p $builddir
+    mkdir -p "$builddir"
   fi
-  cd $builddir
+  cd "$builddir"
 fi
 
 # bug: this is the layer name. Need to source the layer file
@@ -324,6 +324,7 @@ do
         ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
         result=$?
     fi
+done
 
 if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
     echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
