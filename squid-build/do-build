@@ -310,6 +310,8 @@ if [ -n "$builddir" ] ; then
     mkdir -p "$builddir"
   fi
   cd "$builddir"
+else
+    builddir="$srcdir"
 fi
 
 for l in $layers
