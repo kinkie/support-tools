@@ -299,13 +299,6 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
   export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
 fi
 
-# configure
-echo "**************************************"
-echo "srcdir: $srcdir"
-echo "dockercmd_bootstrap: $dockercmd_bootstrap"
-env
-echo "**************************************"
-
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
     ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
@@ -319,7 +312,6 @@ if [ -n "$builddir" ] ; then
   cd "$builddir"
 fi
 
-# bug: this is the layer name. Need to source the layer file
 for l in $layers
 do
     echo "using layer $(basename $l)"
