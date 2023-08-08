@@ -267,10 +267,10 @@ if [ "x$mingw" = "xyes" ]; then
 fi
 
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-srcdir="$PWD"
+srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
 if [ -n "${distro:-}" ]; then
     which tty >/dev/null && tty >/dev/null && inatty="-ti"
-    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
+    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -v $srcdir:$srcdir -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
     dockercmd="${dockercmd_base} -w $srcdir/${builddir:-} squidcache/buildfarm-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $srcdir squidcache/buildfarm-${distro}"
 else
@@ -301,7 +301,7 @@ fi
 
 # configure
 echo "**************************************"
-echo "current directory: $PWD"
+echo "srcdir: $srcdir"
 echo "dockercmd_bootstrap: $dockercmd_bootstrap"
 env
 echo "**************************************"
