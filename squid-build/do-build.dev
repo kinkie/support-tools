@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+
+read -d '' helpmsg <<_EOF
+options:
+  --clean : clean workspace AFTER build
+  --clean-before : clean workspace BEFORE build
+  --compiler <gcc,clang>
+  --continue : do not stop on make errors
+  --dir <dir> : use <dir> as build directory
+  --do-all : configure and build
+  --do-bootstrap : do autoconf bootstrap
+  --do-build: do build step
+  --do-configure : do configure stage
+  --ecap : build ecap
+  --help
+  --icc
+  --in <distro> : use docker image distro to do the build
+  --platform <amd64|i386|aarch64|armv7l>: what CPU platform to use
+  --layer <layer> : support shortcuts (e.g. --layer 02) . use "all" to test all layers
+  --log <file> : log output to <file>
+  --mingw : build in a mingw environment
+  --no-ccache
+  --no-ccache-on-rebuild: if a matrix reloaded rebuild is detected,
+            do not use ccache
+  --no-opt : do not optimize
+  --parallel <#>
+  --pass <arg> : argument passthrough
+  --quiet
+  --revno <revision>
+  --ring : ring at end of build
+  --translate : do translations
+  --stagger <seconds>: wait for a random time up to <seconds> before start
+_EOF
+
+for path in /opt/homebrew/opt/gnu-getopt/bin /usr/local/bin
+do
+  test -x $path/getopt && GETOPT=$path/getopt
+  break
+done
+
+# TODO: make do-* argument optionally take a "no" argument
+opt=$(${GETOPT:-getopt} --longoptions stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
+eval set -- "$opt"
+#default
+CC=${CC:-gcc}
+CXX=${CXX:-g++}
+MAKE=${MAKE:-make}
+ECHO=${ECHO:-echo}
+makeflags=""
+quiet=""
+do_translate="no"
+in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
+export SUSE_ASNEEDED=0
+
+if which gmake >/dev/null 2>&1 ; then
+    MAKE=gmake
+    echo "make -> gmake"
+fi
+
+if which gecho >/dev/null 2>&1 ; then
+    export ECHO=gecho
+    echo "echo -> gecho"
+fi
+
+test -n "$in_vscode" && makeflags="$makeflags -w"
+
+# translates conventional platforms onto the form docker likes
+# (e.g. x86_64 -> amd64). Argument is the platform name, returns
+# normalized platform to stdout
+normalize_platform() {
+    case "$1" in
+    amd64|i386) echo "$1";;
+    x86_64) echo "amd64";;
+    i686) echo "i386";;
+    aarch64) echo "arm64/v8";;
+    armv7l) echo "arm/v7";;
+    *) echo "unrecognised platform: $1" >2; exit 1;;
+    esac
+}
+platform=$(normalize_platform $(uname -p))
+
+while true; do
+  case "$1" in
+    --ecap) ECAP_CONFIGURE_FLAGS="--enable-ecap=yes"; shift;;
+    --no-opt)
+      export CFLAGS="$CFLAGS -O0 -g"
+      export CXXFLAGS="$CXXFLAGS -O0 -g"
+      shift ;;
+    --do-bootstrap) do_bootstrap="yes"; shift;;
+    -a|--do-all) do_bootstrap="yes"; do_configure="yes"; do_build="yes"; shift;;
+    --do-configure) do_configure="yes"; shift;;
+    --do-build) do_build="yes"; shift;;
+    -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
+    --clang) CC="clang"; CXX="clang++"; shift;;
+    --icc) CC="icc"; CXX="icpc"; shift;;
+    -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
+    --no-ccache-on-rebuild) if [ -n "$REBUILD" ]; then ccache="no"; export CCACHE_DISABLE=1; echo "rebuild detected, disabling ccache"; fi; shift;;
+    -l|--log) logfile="$2" ; shift 2;;
+    -h|--help) echo "$helpmsg"; exit 0;;
+    -r|--ring) do_ring=true; shift;;
+    -j|--parallel)
+	    parallel="-j $2";
+	    test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
+	    shift 2;;
+    -d|--dir) builddir="$2"; shift 2;;
+    --in) distro="$2"; shift 2;;
+    --platform) platform=$(normalize_platform "$2");;
+    --pass) extraargs="$2"; shift 2;;
+    --clean-before) do_clean_before="yes"; shift;;
+    --clean) do_clean_after="yes"; shift;;
+    --revno) revno="$2"; shift 2;;
+    --layer) layer="$2"; shift 2;;
+    -k|--continue) makeflags="-k"; shift;;
+    -q|--quiet) quiet=">/dev/null"; shift;;
+    --translate) do_translate="yes"; shift;;
+    --stage) dtages="$2"; shift 2;;
+    --stagger) stagger="$2"; shift 2;;
+    --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO BUILD_WITH_SSL="--disable-ssl --without-openssl" distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --host=x86_64-w64-mingw32" mingw="yes"; shift;;
+    --) shift; break;;
+    *) echo "internal error"; exit 1;;
+  esac
+done
+
+if [ -n "$stagger" ]; then
+    timewait=$(( $RANDOM % $stagger))
+    echo "Waiting for $timewait seconds before start"
+    sleep $timewait
+fi
+
+exec 3>&1
+if [ -n "$logfile" ]; then
+  if [ -n "$quiet" ]; then
+    exec >$logfile
+  else
+    exec > >(tee $logfile)
+  fi
+  exec 2>&1
+fi
+
+if [ "$do_translate" = "no" ]; then
+  po2html_cmd="--with-po2html=off --with-po2txt=off"
+fi
+
+
+# the default
+DISTCHECK_CONFIGURE_FLAGS=" \
+        --enable-loadable-modules \
+        --enable-optimizations \
+        --enable-inline \
+        --enable-debug-cbdata \
+        --enable-xmalloc-statistics \
+        --enable-async-io \
+        --enable-disk-io \
+        --enable-removal-policies \
+        --enable-icmp \
+        --enable-delay-pools \
+        --enable-icap-client \
+        --enable-useragent-log \
+        --enable-referer-log \
+        --enable-wccp \
+        --enable-wccpv2 \
+        --enable-kill-parent-hack \
+        --enable-snmp \
+        --enable-cachemgr-hostname \
+        --enable-eui \
+        --enable-htcp \
+        ${BUILD_WITH_SSL:- --enable-ssl --with-openssl} \
+        --enable-forw-via-db \
+        --enable-cache-digests \
+        --enable-poll \
+        --enable-select \
+        --enable-http-violations \
+        --enable-ipfw-transparent \
+        --enable-leakfinder \
+        --enable-follow-x-forwarded-for \
+        --enable-ident-lookups \
+        --enable-internal-dns \
+        --enable-default-hostsfile \
+        --enable-auth \
+        --enable-basic-auth-helpers \
+        --enable-ntlm-auth-helpers \
+        --enable-negotiate-auth-helpers \
+        --enable-digest-auth-helpers \
+        --enable-ntlm-fail-open \
+        --enable-external-acl-helpers \
+        --enable-url-rewrite-helpers \
+        --enable-mempools \
+        --enable-unlinkd \
+        --enable-stacktraces \
+        --enable-vary \
+        --enable-x-accelerator-vary \
+        --enable-ipv6 \
+        --disable-auto-locale \
+        --disable-translation \
+        --enable-zph-qos \
+        --enable-esi \
+        --with-aio \
+        --with-build-environment=default \
+        --with-dl \
+        --with-dns-cname \
+        --with-gnu-ld \
+        --with-ipv6-split-stack \
+        --with-large-files \
+        --with-pic \
+        --with-pthreads \
+        --disable-arch-native \
+        --enable-strict-error-checking \
+	${po2html_cmd} \
+        "
+# macos hacks
+if which brew >/dev/null 
+then
+    for dir in /opt/homebrew /opt/homebrew/opt/openssl@3 /usr/local 
+    do
+        test -d $dir/lib && LDFLAGS="$LDFLAGS -L$dir/lib"
+        test -d $dir/include && CPPFLAGS="$CPPFLAGS -I$dir/include"
+    done
+    if gcc --version | grep -q clang
+    then
+        CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
+    fi    
+fi
+
+if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
+  CC="ccache $CC"
+  CXX="ccache $CXX"
+fi
+
+if [ -n "$revno" ]; then
+  echo "Switching to revision $revno"
+  git checkout -r$revno
+fi
+
+if ls btlayer* >/dev/null 2>&1 ; then
+  chmod -R u+w btlayer*
+  rm -rf btlayer*
+fi
+
+if [ "x$layer" = "xall" ] ; then
+    layers="$(ls test-suite/buildtests/layer*opts)"
+elif [ -n "$layer" ]; then
+    for layerdir in test-suite/buildtests `dirname $0`; do
+        f=`ls $layerdir/*$layer* 2>/dev/null`
+        if [ -n "$f" -a -e "$f" ]; then
+            echo "using layer: $f"
+            layers="$f"
+            break
+        fi
+    done
+fi
+# $layers is now a list of full paths to layer files
+
+#clean
+if [ -n "$do_clean_before" -a -f test-builds.sh ]; then
+  touch foo.o
+  find . \( -name \*.[oa] -o -name Makefile.in -o -name autom4te.cache -o -name cfgaux -o -name configure -o -name aclocal.m4 -o -name \*~ -o -name autoconf.h.in -o -name config.h.in -o -name \*.lo -o -name .dirstamp \) -type f -delete -print
+  for dir in autom4te.cache cfgaux lib/libTrie/autom4te.cache lib/libTrie/cfgaux libltdl lib/libTrie/libltdl; do
+    test -d $dir && rm  -rf $dir
+  done
+  git clean -fxd
+fi
+
+if [ "x$mingw" = "xyes" ]; then
+# mingw must not specify CC and CXX
+    unset CC CXX
+fi
+
+export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
+srcdir="$PWD"
+if [ -n "${distro:-}" ]; then
+    which tty >/dev/null && tty >/dev/null && inatty="-ti"
+    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
+    dockercmd="${dockercmd_base} -w $srcdir/${builddir:-} squidcache/buildfarm-${distro}"
+    dockercmd_bootstrap="${dockercmd_base} -w $srcdir squidcache/buildfarm-${distro}"
+else
+    dockercmd=""
+    dockercmd_bootstrap=""
+fi
+
+#macos hacks
+if [ "x$(uname -s)" = "xDarwin" ]; then
+  for prefix in /usr/local /opt/homebrew
+  do
+    for library in openssl openldap
+    do
+      p="$prefix/opt/$library"
+      if [ -e "$p/include" ]; then
+        echo "Adding $p/include"
+        export CPPFLAGS="$CPPFLAGS -I$p/include"
+      fi
+      if [ -e "$p/lib" ]; then
+        echo "Adding $p/lib"
+        export LDFLAGS="$LDFLAGS -L$p/lib"
+      fi
+    done
+  done
+  export CXXFLAGS="$CXXFLAGS -Wno-deprecated-declarations"
+  export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
+fi
+
+# configure
+echo "**************************************"
+echo "current directory: $PWD"
+echo "dockercmd_bootstrap: $dockercmd_bootstrap"
+echo "**************************************"
+
+if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
+    echo "bootstrapping"
+    ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
+fi
+
+if [ -n "$builddir" ] ; then
+  if [ ! -d "$builddir" ] ; then
+    echo "Creating build dir $builddir"
+    mkdir -p "$builddir"
+  fi
+  cd "$builddir"
+fi
+
+# bug: this is the layer name. Need to source the layer file
+for l in $layers
+do
+    echo "using layer $(basename $l)"
+    . "$l"
+    if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
+        display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
+        echo "running ./configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${dockercmd} bash -c "./configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+        result=$?
+        if [ $result -gt 0 ]; then
+            echo "failure at configure stage for layer $(basename $l)"
+            exit 1
+        fi
+    fi
+done
+
+if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
+    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+    result=$?
+fi
+
+if [ "x$do_build" = "xyes" -a "${result:-0}" -eq 0 ]; then
+    ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
+    result=$?
+fi
+
+if [ -n "$logfile" ]; then
+    tail -n 1 "$logfile" >&3
+fi
+
+if [ -n "$do_clean_after" ]; then
+  ${dockercmd} bash -c "make distclean"
+fi
+
+if [ "$do_ring" = "true" ]; then
+  echo -n "" >&3
+fi
+
+exit $result
