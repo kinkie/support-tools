@@ -320,8 +320,8 @@ do
     . "$l"
     if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
         display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
-        echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-        ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+        echo "running ./configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${dockercmd} bash -c "./configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
         result=$?
     fi
 done
