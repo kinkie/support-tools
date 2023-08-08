@@ -267,10 +267,10 @@ if [ "x$mingw" = "xyes" ]; then
 fi
 
 export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-srcdir="$PWD"
+srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
 if [ -n "${distro:-}" ]; then
     which tty >/dev/null && tty >/dev/null && inatty="-ti"
-    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
+    dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -v $srcdir:$srcdir -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
     dockercmd="${dockercmd_base} -w $srcdir/${builddir:-} squidcache/buildfarm-${distro}"
     dockercmd_bootstrap="${dockercmd_base} -w $srcdir squidcache/buildfarm-${distro}"
 else
@@ -300,6 +300,12 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
 fi
 
 # configure
+echo "**************************************"
+echo "srcdir: $srcdir"
+echo "dockercmd_bootstrap: $dockercmd_bootstrap"
+env
+echo "**************************************"
+
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     echo "bootstrapping"
     ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
@@ -323,19 +329,21 @@ do
         echo "running ./configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
         ${dockercmd} bash -c "./configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
         result=$?
+        if [ $result -gt 0 ]; then
+            echo "failure at configure stage for layer $(basename $l)"
+            exit $result
+        fi
+    fi
+    if [ "x$do_build" = "xyes" ]; then
+        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
+        result=$?
+        if [ $result -gt 0 ]; then
+            echo "failure at build stage for layer $(basename $l)"
+            exit $result
+        fi
     fi
 done
 
-if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
-    echo "running ${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-    ${dockercmd} bash -c "${srcdir:=.}/configure --cache-file=/tmp/config-${CC#ccache }.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
-    result=$?
-fi
-
-if [ "x$do_build" = "xyes" -a "${result:-0}" -eq 0 ]; then
-    ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
-    result=$?
-fi
 
 if [ -n "$logfile" ]; then
     tail -n 1 "$logfile" >&3
