@@ -314,7 +314,9 @@ else
     builddir="$srcdir"
 fi
 
-for l in $layers
+# if layers is unset, rely on hardcoded DISTCHECK_CONFIGURE_FLAGS by sourcing
+#  /dev/null
+for l in ${layers:-/dev/null}
 do
     echo "using layer $(basename $l)"
     . "$l"
