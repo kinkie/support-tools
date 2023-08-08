@@ -303,6 +303,7 @@ fi
 echo "**************************************"
 echo "current directory: $PWD"
 echo "dockercmd_bootstrap: $dockercmd_bootstrap"
+env
 echo "**************************************"
 
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
