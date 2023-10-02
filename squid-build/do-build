@@ -116,7 +116,7 @@ while true; do
     --translate) do_translate="yes"; shift;;
     --stage) dtages="$2"; shift 2;;
     --stagger) stagger="$2"; shift 2;;
-    --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO BUILD_WITH_SSL="--disable-ssl --without-openssl" distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --host=x86_64-w64-mingw32" mingw="yes"; shift;;
+    --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --disable-ssl --without-openssl --host=x86_64-w64-mingw32" mingw="yes"; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -143,71 +143,6 @@ if [ "$do_translate" = "no" ]; then
 fi
 
 
-# the default
-DISTCHECK_CONFIGURE_FLAGS=" \
-        --enable-loadable-modules \
-        --enable-optimizations \
-        --enable-inline \
-        --enable-debug-cbdata \
-        --enable-xmalloc-statistics \
-        --enable-async-io \
-        --enable-disk-io \
-        --enable-removal-policies \
-        --enable-icmp \
-        --enable-delay-pools \
-        --enable-icap-client \
-        --enable-useragent-log \
-        --enable-referer-log \
-        --enable-wccp \
-        --enable-wccpv2 \
-        --enable-kill-parent-hack \
-        --enable-snmp \
-        --enable-cachemgr-hostname \
-        --enable-eui \
-        --enable-htcp \
-        ${BUILD_WITH_SSL:- --enable-ssl --with-openssl} \
-        --enable-forw-via-db \
-        --enable-cache-digests \
-        --enable-poll \
-        --enable-select \
-        --enable-http-violations \
-        --enable-ipfw-transparent \
-        --enable-leakfinder \
-        --enable-follow-x-forwarded-for \
-        --enable-ident-lookups \
-        --enable-internal-dns \
-        --enable-default-hostsfile \
-        --enable-auth \
-        --enable-basic-auth-helpers \
-        --enable-ntlm-auth-helpers \
-        --enable-negotiate-auth-helpers \
-        --enable-digest-auth-helpers \
-        --enable-ntlm-fail-open \
-        --enable-external-acl-helpers \
-        --enable-url-rewrite-helpers \
-        --enable-mempools \
-        --enable-unlinkd \
-        --enable-stacktraces \
-        --enable-vary \
-        --enable-x-accelerator-vary \
-        --enable-ipv6 \
-        --disable-auto-locale \
-        --disable-translation \
-        --enable-zph-qos \
-        --enable-esi \
-        --with-aio \
-        --with-build-environment=default \
-        --with-dl \
-        --with-dns-cname \
-        --with-gnu-ld \
-        --with-ipv6-split-stack \
-        --with-large-files \
-        --with-pic \
-        --with-pthreads \
-        --disable-arch-native \
-        --enable-strict-error-checking \
-	${po2html_cmd} \
-        "
 # macos hacks
 if which brew >/dev/null 
 then
@@ -266,8 +201,8 @@ if [ "x$mingw" = "xyes" ]; then
     unset CC CXX
 fi
 
-export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
 srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
+extraargs="$extraargs $po2html_cmd"
 if [ -n "${distro:-}" ]; then
     which tty >/dev/null && tty >/dev/null && inatty="-ti"
     dockercmd_base="docker run ${inatty} --rm -u $UID -v $HOME:$HOME -v $srcdir:$srcdir -h build-${distro} -e CC -e CXX -e DISTCHECK_CONFIGURE_FLAGS -e FS_CONFIGURE_FLAGS -e extraargs -e CCACHE_DISABLE -e CCACHE_SECONDARY_STORAGE -e host_alias -e BUILDCXX -e BUILDCXXFLAGS -e SUSE_ASNEEDED --platform ${platform}"
@@ -314,16 +249,15 @@ else
     builddir="$srcdir"
 fi
 
-# if layers is unset, rely on hardcoded DISTCHECK_CONFIGURE_FLAGS by sourcing
-#  /dev/null
-for l in ${layers:-/dev/null}
+for l in ${layers:-test-suite/buildtests/layer-02-maximus.opts}
 do
-    echo "using layer $(basename $l)"
+    echo "using layer $(basename $l .opts)"
     . "$l"
     if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
         display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
-        echo "running ./configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-        ${dockercmd} bash -c "./configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs; env"
+        export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
+        echo "running ${srcdir}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${dockercmd} bash -c "${srcdir}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
         result=$?
         if [ $result -gt 0 ]; then
             echo "failure at configure stage for layer $(basename $l)"
@@ -331,6 +265,7 @@ do
         fi
     fi
     if [ "x$do_build" = "xyes" ]; then
+        export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
         ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
         result=$?
         if [ $result -gt 0 ]; then
@@ -342,10 +277,11 @@ done
 
 
 if [ -n "$logfile" ]; then
-    tail -n 1 "$logfile" >&3
+    tail -n 1 "$srcdir/$logfile" >&3
 fi
 
 if [ -n "$do_clean_after" ]; then
+  export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
   ${dockercmd} bash -c "make distclean"
 fi
 
