@@ -24,6 +24,7 @@ options:
             do not use ccache
   --no-opt : do not optimize
   --parallel <#>
+  --fast: build tests and squid in parallel
   --pass <arg> : argument passthrough
   --quiet
   --revno <revision>
@@ -39,7 +40,7 @@ do
 done
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -79,6 +80,9 @@ normalize_platform() {
     esac
 }
 platform=$(normalize_platform $(uname -p))
+step1_targets="all"
+step2_targets="check"
+
 
 while true; do
   case "$1" in
@@ -117,6 +121,7 @@ while true; do
     --stage) dtages="$2"; shift 2;;
     --stagger) stagger="$2"; shift 2;;
     --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --disable-ssl --without-openssl --host=x86_64-w64-mingw32" mingw="yes"; shift;;
+    --fast) step1_targets="all check"; step2_targets=""; shift;;
     --) shift; break;;
     *) echo "internal error"; exit 1;;
   esac
@@ -266,7 +271,7 @@ do
     fi
     if [ "x$do_build" = "xyes" ]; then
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} all && make ${makeflags} ${parallel} ${continue} check || make ${makeflags} all check"
+        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then make ${makeflags} ${parallel} ${continue} check ; else true; fi || make ${makeflags} all check"
         result=$?
         if [ $result -gt 0 ]; then
             echo "failure at build stage for layer $(basename $l)"
