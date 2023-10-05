@@ -61,7 +61,7 @@ fi
 
 if which gecho >/dev/null 2>&1 ; then
     export ECHO=gecho
-    echo "echo -> gecho"
+    ${ECHO} "echo -> gecho"
 fi
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
@@ -71,12 +71,12 @@ test -n "$in_vscode" && makeflags="$makeflags -w"
 # normalized platform to stdout
 normalize_platform() {
     case "$1" in
-    amd64|i386) echo "$1";;
-    x86_64) echo "amd64";;
-    i686) echo "i386";;
-    aarch64) echo "arm64/v8";;
-    armv7l) echo "arm/v7";;
-    *) echo "unrecognised platform: $1" >2; exit 1;;
+    amd64|i386) ${ECHO} "$1";;
+    x86_64) ${ECHO} "amd64";;
+    i686) ${ECHO} "i386";;
+    aarch64) ${ECHO} "arm64/v8";;
+    armv7l) ${ECHO} "arm/v7";;
+    *) ${ECHO} "unrecognised platform: $1" >2; exit 1;;
     esac
 }
 platform=$(normalize_platform $(uname -p))
@@ -95,13 +95,13 @@ while true; do
     -a|--do-all) do_bootstrap="yes"; do_configure="yes"; do_build="yes"; shift;;
     --do-configure) do_configure="yes"; shift;;
     --do-build) do_build="yes"; shift;;
-    -c|--compiler) CC=$2; CXX=$(echo $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
+    -c|--compiler) CC=$2; CXX=$(${ECHO} $CC|sed 's/gcc/g++/;s/clang/clang++/'); shift 2;;
     --clang) CC="clang"; CXX="clang++"; shift;;
     --icc) CC="icc"; CXX="icpc"; shift;;
     -n|--no-ccache) ccache="no"; export CCACHE_DISABLE=1; shift;;
-    --no-ccache-on-rebuild) if [ -n "$REBUILD" ]; then ccache="no"; export CCACHE_DISABLE=1; echo "rebuild detected, disabling ccache"; fi; shift;;
+    --no-ccache-on-rebuild) if [ -n "$REBUILD" ]; then ccache="no"; export CCACHE_DISABLE=1; ${ECHO} "rebuild detected, disabling ccache"; fi; shift;;
     -l|--log) logfile="$2" ; shift 2;;
-    -h|--help) echo "$helpmsg"; exit 0;;
+    -h|--help) ${ECHO} "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -j|--parallel)
 	    parallel="-j $2";
@@ -123,13 +123,13 @@ while true; do
     --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --disable-ssl --without-openssl --host=x86_64-w64-mingw32" mingw="yes"; shift;;
     --fast) step1_targets="all check"; step2_targets=""; shift;;
     --) shift; break;;
-    *) echo "internal error"; exit 1;;
+    *) ${ECHO} "internal error"; exit 1;;
   esac
 done
 
 if [ -n "$stagger" ]; then
     timewait=$(( $RANDOM % $stagger))
-    echo "Waiting for $timewait seconds before start"
+    ${ECHO} "Waiting for $timewait seconds before start"
     sleep $timewait
 fi
 
@@ -168,7 +168,7 @@ if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
 fi
 
 if [ -n "$revno" ]; then
-  echo "Switching to revision $revno"
+  ${ECHO} "Switching to revision $revno"
   git checkout -r$revno
 fi
 
@@ -183,7 +183,7 @@ elif [ -n "$layer" ]; then
     for layerdir in test-suite/buildtests `dirname $0`; do
         f=`ls $layerdir/*$layer* 2>/dev/null`
         if [ -n "$f" -a -e "$f" ]; then
-            echo "using layer: $f"
+            ${ECHO} "using layer: $f"
             layers="$f"
             break
         fi
@@ -226,11 +226,11 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
     do
       p="$prefix/opt/$library"
       if [ -e "$p/include" ]; then
-        echo "Adding $p/include"
+        ${ECHO} "Adding $p/include"
         export CPPFLAGS="$CPPFLAGS -I$p/include"
       fi
       if [ -e "$p/lib" ]; then
-        echo "Adding $p/lib"
+        ${ECHO} "Adding $p/lib"
         export LDFLAGS="$LDFLAGS -L$p/lib"
       fi
     done
@@ -240,13 +240,13 @@ if [ "x$(uname -s)" = "xDarwin" ]; then
 fi
 
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
-    echo "bootstrapping"
+    ${ECHO} "bootstrapping"
     ${dockercmd_bootstrap} bash -c "./bootstrap.sh && (cd libltdl; autoreconf -fi)"
 fi
 
 if [ -n "$builddir" ] ; then
   if [ ! -d "$builddir" ] ; then
-    echo "Creating build dir $builddir"
+    ${ECHO} "Creating build dir $builddir"
     mkdir -p "$builddir"
   fi
   cd "$builddir"
@@ -256,16 +256,16 @@ fi
 
 for l in ${layers:-test-suite/buildtests/layer-02-maximus.opts}
 do
-    echo "using layer $(basename $l .opts)"
+    ${ECHO} "using layer $(basename $l .opts)"
     . "$l"
     if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
         display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        echo "running ${srcdir}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${ECHO} "running ${srcdir}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
         ${dockercmd} bash -c "${srcdir}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
         result=$?
         if [ $result -gt 0 ]; then
-            echo "failure at configure stage for layer $(basename $l)"
+            ${ECHO} "failure at configure stage for layer $(basename $l)"
             exit $result
         fi
     fi
@@ -274,7 +274,7 @@ do
         ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then make ${makeflags} ${parallel} ${continue} check ; else true; fi || make ${makeflags} all check"
         result=$?
         if [ $result -gt 0 ]; then
-            echo "failure at build stage for layer $(basename $l)"
+            ${ECHO} "failure at build stage for layer $(basename $l)"
             exit $result
         fi
     fi
@@ -291,7 +291,7 @@ if [ -n "$do_clean_after" ]; then
 fi
 
 if [ "$do_ring" = "true" ]; then
-  echo -n "" >&3
+  ${ECHO} -n "" >&3
 fi
 
 exit $result
