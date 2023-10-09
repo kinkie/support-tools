@@ -254,10 +254,10 @@ else
     builddir="$srcdir"
 fi
 
-for l in ${layers:-test-suite/buildtests/layer-02-maximus.opts}
+for l in ${layers:-${srcdir}/test-suite/buildtests/layer-02-maximus.opts}
 do
     ${ECHO} "using layer $(basename $l .opts)"
-    . "$l"
+    . "${srcdir}/$l"
     if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
         display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
