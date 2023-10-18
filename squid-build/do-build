@@ -40,7 +40,7 @@ do
 done
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 #default
@@ -109,7 +109,7 @@ while true; do
 	    shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
-    --platform) platform=$(normalize_platform "$2");;
+    --platform) platform=$(normalize_platform "$2"); shift 2;;
     --pass) extraargs="$2"; shift 2;;
     --clean-before) do_clean_before="yes"; shift;;
     --clean) do_clean_after="yes"; shift;;
@@ -258,7 +258,7 @@ for l in ${layers:-${srcdir}/test-suite/buildtests/layer-02-maximus.opts}
 do
     ${ECHO} "using layer $(basename $l .opts)"
     . "${srcdir}/$l"
-    if [ -n "$do_configure" -o ! -e "${builddir:-.}/Makefile" ]; then
+    if [ -n "$do_configure" -o ! -e "Makefile" ]; then
         display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
         ${ECHO} "running ${srcdir}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
