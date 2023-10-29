@@ -76,7 +76,7 @@ normalize_platform() {
     i686) ${ECHO} "i386";;
     aarch64) ${ECHO} "arm64/v8";;
     armv7l) ${ECHO} "arm/v7";;
-    *) ${ECHO} "unrecognised platform: $1" >2; exit 1;;
+    *) ${ECHO} "unrecognised platform: $1" >&2; exit 1;;
     esac
 }
 platform=$(normalize_platform $(uname -p))
