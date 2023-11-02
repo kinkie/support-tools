@@ -6,7 +6,7 @@ options:
   --clean-before : clean workspace BEFORE build
   --compiler <gcc,clang>
   --continue : do not stop on make errors
-  --dir <dir> : use <dir> as build directory
+  --dir <dir> : use <dir> as build directory. "auto" uses btbuild-<distro>-<platform>-<compiler>
   --do-all : configure and build
   --do-bootstrap : do autoconf bootstrap
   --do-build: do build step
@@ -206,6 +206,12 @@ if [ "x$mingw" = "xyes" ]; then
     unset CC CXX
 fi
 
+# special case if $builddir is "auto"
+if [ "$builddir" = "auto" ]; then
+    builddir="btbuild${distro:+-$distro}${platform:+-$platform}${CC:+-${CC/ccache /}}"
+    echo "auto builddir: $builddir"
+fi
+
 srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
 extraargs="$extraargs $po2html_cmd"
 if [ -n "${distro:-}" ]; then
@@ -259,10 +265,11 @@ do
     ${ECHO} "using layer $(basename $l .opts)"
     . "${srcdir}/$l"
     if [ -n "$do_configure" -o ! -e "Makefile" ]; then
-        display_cc="${CC:-cc}";display_cc="${display_cc// /-}"
-        export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        ${ECHO} "running ${srcdir}/configure --cache-file=/tmp/config-${display_cc}${distro}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-        ${dockercmd} bash -c "${srcdir}/configure --cache-file=/tmp/config-${disply_cc}.cache $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        display_cc="${CC:-cc}-${distro:-local}-${platform}-${CXXFLAGS:-default}";display_cc="${display_cc// /-}";display_cc="${display_cc//--/-}"
+        extraargs="$extraargs --cache-file=/tmp/config-${display_cc}.cache"
+        export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE display_cc
+        ${ECHO} "running ${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${dockercmd} bash -c "${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
         result=$?
         if [ $result -gt 0 ]; then
             ${ECHO} "failure at configure stage for layer $(basename $l)"
@@ -271,7 +278,7 @@ do
     fi
     if [ "x$do_build" = "xyes" ]; then
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then make ${makeflags} ${parallel} ${continue} check ; else true; fi || make ${makeflags} all check"
+        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then make ${makeflags} ${parallel} ${continue} ${step2_targets} ; else true; fi || make ${makeflags} ${step1_targets} ${step2_targets}"
         result=$?
         if [ $result -gt 0 ]; then
             ${ECHO} "failure at build stage for layer $(basename $l)"
@@ -294,4 +301,10 @@ if [ "$do_ring" = "true" ]; then
   ${ECHO} -n "" >&3
 fi
 
+echo;echo;echo;echo
+if [ $result -gt 0 ]; then
+    echo "****************** FAILURE *****************"
+else
+    echo "****************** SUCCESS *****************"
+fi
 exit $result
