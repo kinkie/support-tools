@@ -3,10 +3,13 @@
 
 set -euo pipefail
 
+test -n "$GIT_COMMIT" && revision=`echo $GIT_COMMIT | cut -c1-10`
+test -n "$GIT_BRANCH" && branch=`echo $GIT_BRANCH | sed 's!^origin/!!'`
+
 ./bootstrap.sh
-branch=${1:-master}
+test -n $branch && branch=${1:-master}
 date=`env TZ=GMT date +%Y%m%d`
-revision=`git rev-parse --short ${branch}`
+test -n "$revision" && revision=`git rev-parse --short ${branch}`
 package_version=`grep "^ *PACKAGE_VERSION=" configure | sed "s/.*=//;s/'//g"`
 version="${package_version%-VCS}"
 suffix="${date}-r${revision}"
