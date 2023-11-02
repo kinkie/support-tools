@@ -15,7 +15,7 @@ version="${package_version%-VCS}"
 suffix="${date}-r${revision}"
 mkdir -p artifacts
 
-test -z "${skip_tests:-}" || ./test-builds.sh --cleanup layer-00-default layer-01-minimal layer-02-maximus || exit 1
+./test-builds.sh --cleanup layer-00-default layer-01-minimal layer-02-maximus || exit 1
 
 # sources
 ./configure --silent --enable-build-info="DATE: ${date} REVISION: ${revision}" --enable-translation
