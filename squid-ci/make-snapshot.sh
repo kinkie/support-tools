@@ -29,10 +29,10 @@ gzip -9f artifacts/squid-${version}-${suffix}-cfgman.html
 
 # manuals
 make -C src squid.8
-mkdir -p doc/manuals
-ln $(find * -name '*.[18]') doc/manuals
-for file in doc/manuals/*.[18]; do groff -E -Thtml -mandoc <$file >$file.html; done
-(cd doc/manuals; tar -zcf ../../artifacts/squid-${version}-${suffix}-manuals.tar.gz *.html *.1 *.8)
+mkdir -p doc/man
+ln `grep -rl '^.SH' src doc tools | grep '[1-9]$'` doc/man
+for file in doc/man/*.[1-9]; do groff -E -Thtml -mandoc <$file >$file.html; done
+(cd doc/man; tar -zcf ../../artifacts/squid-${version}-${suffix}-manuals.tar.gz *)
 
 # langpack
 (cd errors; tar -zcf ../artifacts/squid-${version}-${suffix}-langpack.tar.gz */* alias* TRANSLATORS COPYRIGHT)
