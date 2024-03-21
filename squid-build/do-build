@@ -104,9 +104,9 @@ while true; do
     -h|--help) ${ECHO} "$helpmsg"; exit 0;;
     -r|--ring) do_ring=true; shift;;
     -j|--parallel)
-	    parallel="-j $2";
-	    test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
-	    shift 2;;
+        parallel="-j $2";
+        test -n "$in_vscode" && parallel="$parallel --output-sync=recurse "
+        shift 2;;
     -d|--dir) builddir="$2"; shift 2;;
     --in) distro="$2"; shift 2;;
     --platform) platform=$(normalize_platform "$2"); shift 2;;
@@ -149,17 +149,23 @@ fi
 
 
 # macos hacks
-if which brew >/dev/null 
+if which brew >/dev/null
 then
-    for dir in /opt/homebrew /opt/homebrew/opt/openssl@3 /usr/local 
+    for dir in /opt/homebrew /usr/local
     do
-        test -d $dir/lib && LDFLAGS="$LDFLAGS -L$dir/lib"
-        test -d $dir/include && CPPFLAGS="$CPPFLAGS -I$dir/include"
+        for package in openldap cyrus-sasl
+        do
+            if test -d $dir/opt/$package/lib/pkgconfig ; then
+                export PKG_CONFIG_PATH="$PKG_CONFIG_PATH${PKG_CONFIG_PATH:+:}$dir/opt/$package/lib/pkgconfig"
+                echo "Adding $dir/opt/$package/lib/pkgconfig to PKG_CONFIG_PATH"
+            fi
+        done
     done
     if gcc --version | grep -q clang
     then
         CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
-    fi    
+    fi
+    export CPPFLAGS=-I/opt/homebrew/include # hack for openssl@3
 fi
 
 if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
@@ -222,27 +228,6 @@ if [ -n "${distro:-}" ]; then
 else
     dockercmd=""
     dockercmd_bootstrap=""
-fi
-
-#macos hacks
-if [ "x$(uname -s)" = "xDarwin" ]; then
-  for prefix in /usr/local /opt/homebrew
-  do
-    for library in openssl openldap
-    do
-      p="$prefix/opt/$library"
-      if [ -e "$p/include" ]; then
-        ${ECHO} "Adding $p/include"
-        export CPPFLAGS="$CPPFLAGS -I$p/include"
-      fi
-      if [ -e "$p/lib" ]; then
-        ${ECHO} "Adding $p/lib"
-        export LDFLAGS="$LDFLAGS -L$p/lib"
-      fi
-    done
-  done
-  export CXXFLAGS="$CXXFLAGS -Wno-deprecated-declarations"
-  export FS_CONFIGURE_FLAGS="--enable-storeio=ufs,aufs,diskd"
 fi
 
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
