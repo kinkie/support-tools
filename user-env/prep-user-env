@@ -7,7 +7,7 @@ install_config() {
 	test -f $2 && echo "$1 already installed to $2"
 	read -n1 -p "install $1? [y/f/*]" q ; echo
 	case $q in
-		f|F) install -D -v $configsdir/$1 $2;;
+		f|F) install -d -v $configsdir/$1 $2;;
 		y|Y) test -f $2 || install -D -v $configsdir/$1 $2;;
 		*) : ;;
 	esac
@@ -16,6 +16,7 @@ install_config() {
 install_config gitconfig ~/.gitconfig
 install_config gitignore ~/.gitignore
 install_config tmux.conf ~/.tmux.conf
+install_config gdbinit ~/.config/gdb/init
 sed -i 's/_AT_PLACEHOLDER_/@/' ~/.gitconfig
 
 test -n "`which vim`" && git config --global core.editor vim
