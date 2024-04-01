@@ -2,17 +2,23 @@
 
 configsdir=`dirname $0`/configs
 
+detect_commands() {
+    INSTALL=install
+    test -n "`which ginstall`" && INSTALL=ginstall
+}
+
 # args: config to be installed (from configs), and where to
 install_config() {
 	test -f $2 && echo "$1 already installed to $2"
 	read -n1 -p "install $1? [y/f/*]" q ; echo
 	case $q in
-		f|F) install -d -v $configsdir/$1 $2;;
-		y|Y) test -f $2 || install -D -v $configsdir/$1 $2;;
+		f|F) $INSTALL -D -v $configsdir/$1 $2;;
+		y|Y) test -f $2 || $INSTALL -D -v $configsdir/$1 $2;;
 		*) : ;;
 	esac
 }
 
+detect_commands
 install_config gitconfig ~/.gitconfig
 install_config gitignore ~/.gitignore
 install_config tmux.conf ~/.tmux.conf
