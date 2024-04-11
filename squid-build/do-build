@@ -33,16 +33,6 @@ options:
   --stagger <seconds>: wait for a random time up to <seconds> before start
 _EOF
 
-for path in /opt/homebrew/opt/gnu-getopt/bin /usr/local/bin
-do
-  test -x $path/getopt && GETOPT=$path/getopt
-  break
-done
-
-# TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
-if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
-eval set -- "$opt"
 #default
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
@@ -55,20 +45,35 @@ do_translate="no"
 in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
 export SUSE_ASNEEDED=0
 
-if which gmake >/dev/null 2>&1 ; then
-    MAKE=gmake
-    echo "make -> gmake"
+# macos hacks
+if which brew >/dev/null
+then
+    eval `brew shellenv`
+    for package in openldap cyrus-sasl
+    do
+        if test -d $HOMEBREW_PREFIX/opt/$package/lib/pkgconfig ; then
+            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH${PKG_CONFIG_PATH:+:}$HOMEBREW_PREFIX/opt/$package/lib/pkgconfig"
+            echo "Adding $HOMEBREW_PREFIX/opt/$package/lib/pkgconfig to PKG_CONFIG_PATH"
+        fi
+    done
+
+    test -x $HOMEBREW_PREFIX/opt/m4/bin/m4 && M4="$HOMEBREW_PREFIX/opt/m4/bin/m4"
+    test -x $HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt && GETOPT=$HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt
+    test -x $HOMEBREW_PREFIX/bin/gmake && MAKE=$HOMEBREW_PREFIX/bin/gmake
+    test -x $HOMEBREW_PREFIX/bin/gecho && MAKE=$HOMEBREW_PREFIX/bin/gecho
+
+    if gcc --version | grep -q clang
+    then
+        CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
+    fi
+    export CPPFLAGS=-I/opt/homebrew/include # hack for openssl@3
 fi
 
-if which gecho >/dev/null 2>&1 ; then
-    ECHO=gecho
-    ${ECHO} "echo -> gecho"
-fi
-if which gm4 >/dev/null 2>&1 ; then
-    M4=gm4
-    ${ECHO} "m4 -> gm4"
-fi
-export CC CXX MAKE ECHO M4
+
+# TODO: make do-* argument optionally take a "no" argument
+opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
+eval set -- "$opt"
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
 
@@ -153,26 +158,6 @@ if [ "$do_translate" = "no" ]; then
   po2html_cmd="--with-po2html=off --with-po2txt=off"
 fi
 
-
-# macos hacks
-if which brew >/dev/null
-then
-    for dir in /opt/homebrew /usr/local
-    do
-        for package in openldap cyrus-sasl
-        do
-            if test -d $dir/opt/$package/lib/pkgconfig ; then
-                export PKG_CONFIG_PATH="$PKG_CONFIG_PATH${PKG_CONFIG_PATH:+:}$dir/opt/$package/lib/pkgconfig"
-                echo "Adding $dir/opt/$package/lib/pkgconfig to PKG_CONFIG_PATH"
-            fi
-        done
-    done
-    if gcc --version | grep -q clang
-    then
-        CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
-    fi
-    export CPPFLAGS=-I/opt/homebrew/include # hack for openssl@3
-fi
 
 if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
   CC="ccache $CC"
