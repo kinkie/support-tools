@@ -48,6 +48,7 @@ CC=${CC:-gcc}
 CXX=${CXX:-g++}
 MAKE=${MAKE:-make}
 ECHO=${ECHO:-echo}
+M4=${M4:-m4}
 makeflags=""
 quiet=""
 do_translate="no"
@@ -60,9 +61,14 @@ if which gmake >/dev/null 2>&1 ; then
 fi
 
 if which gecho >/dev/null 2>&1 ; then
-    export ECHO=gecho
+    ECHO=gecho
     ${ECHO} "echo -> gecho"
 fi
+if which gm4 >/dev/null 2>&1 ; then
+    M4=gm4
+    ${ECHO} "m4 -> gm4"
+fi
+export CC CXX MAKE ECHO M4
 
 test -n "$in_vscode" && makeflags="$makeflags -w"
 
