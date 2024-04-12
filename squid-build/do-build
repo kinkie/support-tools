@@ -60,7 +60,6 @@ then
     test -x $HOMEBREW_PREFIX/opt/m4/bin/m4 && M4="$HOMEBREW_PREFIX/opt/m4/bin/m4"
     test -x $HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt && GETOPT=$HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt
     test -x $HOMEBREW_PREFIX/bin/gmake && MAKE=$HOMEBREW_PREFIX/bin/gmake
-    test -x $HOMEBREW_PREFIX/bin/gecho && MAKE=$HOMEBREW_PREFIX/bin/gecho
 
     if gcc --version | grep -q clang
     then
