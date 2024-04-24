@@ -48,7 +48,7 @@ export SUSE_ASNEEDED=0
 # macos hacks
 if which brew >/dev/null
 then
-    eval `brew shellenv`
+    test -z "$HOMEBREW_PREFIX" && eval `brew shellenv`
     for package in openldap cyrus-sasl
     do
         if test -d $HOMEBREW_PREFIX/opt/$package/lib/pkgconfig ; then
