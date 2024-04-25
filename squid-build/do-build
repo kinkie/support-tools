@@ -48,7 +48,7 @@ export SUSE_ASNEEDED=0
 # macos hacks
 if which brew >/dev/null
 then
-    test -z "$HOMEBREW_PREFIX" && eval `brew shellenv`
+    eval `brew shellenv`
     for package in openldap cyrus-sasl
     do
         if test -d $HOMEBREW_PREFIX/opt/$package/lib/pkgconfig ; then
@@ -57,6 +57,7 @@ then
         fi
     done
 
+    test -d "$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin" && export PATH="$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
     test -x $HOMEBREW_PREFIX/opt/m4/bin/m4 && M4="$HOMEBREW_PREFIX/opt/m4/bin/m4"
     test -x $HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt && GETOPT=$HOMEBREW_PREFIX/opt/gnu-getopt/bin/getopt
     test -x $HOMEBREW_PREFIX/bin/gmake && MAKE=$HOMEBREW_PREFIX/bin/gmake
@@ -65,7 +66,8 @@ then
     then
         CFLAGS="$CFLAGS -Wno-compound-token-split-by-macro"
     fi
-    export CPPFLAGS=-I/opt/homebrew/include # hack for openssl@3
+    export CPPFLAGS="-I$HOMEBREW_PREFIX/include${CPPFLAGS+ $CPPFLAGS}" # hack for openssl@3
+    export LDFLAGS="-L$HOMEBREW_PREFIX/lib${LDFLAGS+ $LDFLAGS}"
 fi
 
 
@@ -253,7 +255,7 @@ do
     fi
     if [ "x$do_build" = "xyes" ]; then
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        ${dockercmd} bash -c "make ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then make ${makeflags} ${parallel} ${continue} ${step2_targets} ; else true; fi || make ${makeflags} ${step1_targets} ${step2_targets}"
+        ${dockercmd} bash -c "${MAKE} ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then ${MAKE} ${makeflags} ${parallel} ${continue} ${step2_targets} ; else true; fi || ${MAKE} ${makeflags} ${step1_targets} ${step2_targets}"
         result=$?
         if [ $result -gt 0 ]; then
             ${ECHO} "failure at build stage for layer $(basename $l)"
@@ -269,7 +271,7 @@ fi
 
 if [ -n "$do_clean_after" ]; then
   export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-  ${dockercmd} bash -c "make distclean"
+  ${dockercmd} bash -c "${MAKE} distclean"
 fi
 
 if [ "$do_ring" = "true" ]; then
