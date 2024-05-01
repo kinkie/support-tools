@@ -31,6 +31,7 @@ options:
   --ring : ring at end of build
   --translate : do translations
   --stagger <seconds>: wait for a random time up to <seconds> before start
+  --hook-before <command>: run the command passed as argument before running the biuld
 _EOF
 
 #default
@@ -72,7 +73,7 @@ fi
 
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage:,hook-before: --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 
@@ -94,6 +95,7 @@ normalize_platform() {
 platform=$(normalize_platform $(uname -p))
 step1_targets="all"
 step2_targets="check"
+hook_before="true"
 
 
 while true; do
@@ -134,6 +136,7 @@ while true; do
     --stagger) stagger="$2"; shift 2;;
     --mingw) export BUILDCXX=g++ BUILDCXXFLAGS=-DFOO distro="ubuntu-mingw" ccache="no" extraargs="$extraargs --disable-ssl --without-openssl --host=x86_64-w64-mingw32" mingw="yes"; shift;;
     --fast) step1_targets="all check"; step2_targets=""; shift;;
+    --hook-before) hook_before="$2"; shift 2;;
     --) shift; break;;
     *) ${ECHO} "internal error"; exit 1;;
   esac
@@ -160,7 +163,7 @@ if [ "$do_translate" = "no" ]; then
 fi
 
 
-if [ "x$ccache" != "xno" -a -n "$(which ccache)" ]; then
+if [ "x$ccache" != "xno" -a $(which ccache >/dev/null 2>/dev/null) ]; then
   CC="ccache $CC"
   CXX="ccache $CXX"
 fi
@@ -221,6 +224,8 @@ else
     dockercmd=""
     dockercmd_bootstrap=""
 fi
+
+$hook_before
 
 if [ ! -e configure -o "x$do_bootstrap" = "xyes" ]; then
     ${ECHO} "bootstrapping"
