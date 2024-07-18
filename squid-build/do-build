@@ -261,7 +261,7 @@ do
     fi
     if [ "x$do_build" = "xyes" ]; then
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE
-        ${dockercmd} bash -c "${MAKE} ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then ${MAKE} ${makeflags} ${parallel} ${continue} ${step2_targets} ; else true; fi || ${MAKE} ${makeflags} ${step1_targets} ${step2_targets}"
+        ${dockercmd} bash -c "${MAKE} ${makeflags} ${parallel} ${continue} ${step1_targets} && if test -n "${step2_targets}"; then ${MAKE} ${makeflags} ${parallel} ${continue} ${step2_targets} ; else true; fi || ${MAKE} ${makeflags} ${parallel} ${step1_targets} ${step2_targets}"
         result=$?
         if [ $result -gt 0 ]; then
             ${ECHO} "failure at build stage for layer $(basename $l)"
