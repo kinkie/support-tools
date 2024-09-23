@@ -151,6 +151,10 @@ fi
 
 exec 3>&1
 if [ -n "$logfile" ]; then
+  echo "logfile: $logfile"
+  d="`dirname $logfile`"
+  test -n "$d" -a ! -d "$d" && mkdir -p "$d"
+  unset d
   if [ -n "$quiet" ]; then
     exec >$logfile
   else
@@ -246,13 +250,13 @@ fi
 for l in ${layers:-${srcdir}/test-suite/buildtests/layer-02-maximus.opts}
 do
     ${ECHO} "using layer $(basename $l .opts)"
-    . "${srcdir}/$l"
+    . "$l"
     if [ -n "$do_configure" -o ! -e "Makefile" ]; then
         display_cc="${CC:-cc}-${distro:-local}-${platform}-${CXXFLAGS:-default}";display_cc="${display_cc// /-}";display_cc="${display_cc//--/-}"
         extraargs="$extraargs --cache-file=/tmp/config-${display_cc}.cache"
         export CC CXX DISTCHECK_CONFIGURE_FLAGS FS_CONFIGURE_FLAGS extraargs CCACHE_DISABLE display_cc
-        ${ECHO} "running ${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
-        ${dockercmd} bash -c "${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack --disable-build-info $extraargs"
+        ${ECHO} "running ${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack $extraargs"
+        ${dockercmd} bash -c "${srcdir}/configure $DISTCHECK_CONFIGURE_FLAGS $FS_CONFIGURE_FLAGS --prefix=$HOME/squid/install --without-netfilter-conntrack $extraargs"
         result=$?
         if [ $result -gt 0 ]; then
             ${ECHO} "failure at configure stage for layer $(basename $l)"
