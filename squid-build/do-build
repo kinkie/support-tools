@@ -45,6 +45,7 @@ quiet=""
 do_translate="no"
 in_vscode="${VSCODE_IPC_HOOK_CLI:+yes}"
 export SUSE_ASNEEDED=0
+srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
 
 # macos hacks
 if which brew >/dev/null
@@ -73,7 +74,7 @@ fi
 
 
 # TODO: make do-* argument optionally take a "no" argument
-opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage:,hook-before: --options ac:nl:j:hkrd:q -- "$@")
+opt=$(${GETOPT:-getopt} --longoptions platform:,fast,stagger:,clean-before,clean,revno:,do-bootstrap,do-configure,do-build,do-all,clang,icc,no-ccache,no-ccache-on-rebuild,no-opt,log:,parallel:,help,mingw,ecap,ring,pass:,dir:,compiler:,layer:,continue,in:,quiet,stage:,hook-before:,translate --options ac:nl:j:hkrd:q -- "$@")
 if [ $? != 0 ] ; then echo "Problem parsing options; terminating" >&2 ; exit 1 ; fi
 eval set -- "$opt"
 
@@ -184,9 +185,9 @@ if ls btlayer* >/dev/null 2>&1 ; then
 fi
 
 if [ "x$layer" = "xall" ] ; then
-    layers="$(ls test-suite/buildtests/layer*opts)"
+    layers="$(ls ${srcdir}/test-suite/buildtests/layer*opts)"
 elif [ -n "$layer" ]; then
-    for layerdir in test-suite/buildtests `dirname $0`; do
+    for layerdir in ${srcdir}/test-suite/buildtests `dirname $0`; do
         f=`ls $layerdir/*$layer* 2>/dev/null`
         if [ -n "$f" -a -e "$f" ]; then
             ${ECHO} "using layer: $f"
@@ -218,7 +219,6 @@ if [ "$builddir" = "auto" ]; then
     echo "auto builddir: $builddir"
 fi
 
-srcdir="${WORKSPACE:-$PWD}" # WORKSPACE is set by jenkins
 extraargs="$extraargs $po2html_cmd"
 if [ -n "${distro:-}" ]; then
     which tty >/dev/null && tty >/dev/null && inatty="-ti"
