@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+repo=""
+
+# test for tools
+SED=`which gsed` ; SED=${SED:-sed}
+FGREP=`which fgrep`; FGREP=${FGREP:-fgrep}
+
+po2html=`which po2html`
+if test -z "$po2html" ; then
+    echo "cannot find po2html"
+    exit 1
+fi
+po2txt=`which po2txt`
+if test -z "$po2txt" ; then
+    echo "cannot find po2txt"
+    exit 1
+fi
+
+usage() {
+cat <<_EOF
+use:
+ $0 [-R Github-repo] <new version> <old version>
+
+_EOF
+}
+
+while getopts "hR:" optchar ; do
+    case "${optchar}" in
+    h) usage; exit 0;;
+    R) repo="-R ${OPTARG}";;
+    -) break;;
+    esac
+done
+shift $((OPTIND -1))
+
+if [ $# -lt 2 ]; then
+    usage
+    exit 2
+fi
+
+new_version=$1
+old_version=$2
+
+new_tag=SQUID_`echo $new_version | tr . _`
+old_tag=SQUID_`echo $old_version | tr . _`
+
+release_tag=RELEASE_`echo $new_version | tr . _`
+release_branch="${new_version}-release"
+release_time=`date +%s`
+
+current_branch=`git branch --show-current`
+release_prep_branch="prep-v${new_version}"
+tmp_changelog_file="ChangeLog-$new_version"
+
+echo "new: $new_tag old: $old_tag"
+echo "repository: $repo"
+
+# check that old tag exists
+if ! git tag -l $old_tag | $FGREP -q $old_tag ; then
+    echo "could not find tag $old_tag"
+    usage
+    exit 2
+fi
+
+# check that new tag does not exist
+if git tag -l $new_tag | $FGREP -q $new_tag ; then
+    echo "tag $new_tag is already defined"
+    echo "If it shouldn't, use:"
+    echo "git tag -d $new_tag"
+    usage
+    exit 2
+fi
+# check that release tag does not exist
+if git tag -l $release_tag | $FGREP -q $release_tag ; then
+    echo "tag $release_tag is already defined"
+    echo "If it shouldn't, use:"
+    echo "git tag -d $release_tag"
+    usage
+    exit 2
+fi
+
+# if the ChangeLog is not ready, prepare one and bail
+if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
+    if git branch -l $release_prep_branch | $FGREP -q $release_prep_branch ; then 
+        git branch -D $release_prep_branch
+    fi
+    echo "Please prepare the ChangeLog and remove this line" >>$tmp_changelog_file
+    echo "Changes in squid-${new_version} (`date '+%d %b %Y'`)" >>$tmp_changelog_file
+    git log --no-decorate --oneline ${old_tag}.. | $SED 's@^[^ ]* @	- @;s@(#[0-9]*)$@@' >>$tmp_changelog_file
+    echo >> $tmp_changelog_file
+    cat ChangeLog >> $tmp_changelog_file
+    mv $tmp_changelog_file ChangeLog
+    ${EDITOR:-vi} ChangeLog
+    git checkout -b $release_prep_branch $current_branch
+    git add ChangeLog
+    git commit -m "Prep for v$new_version"
+    git push --set-upstream origin
+    gh $repo pr create --base $current_branch --fill 
+    exit 0
+fi
+
+## at the end
+# check that the release in configure.ac is what we expect it to be
+if ! $FGREP -q "AC_INIT([Squid Web Proxy],[${old_version}-VCS],[https://bugs.squid-cache.org/],[squid])" configure.ac ; then
+    echo "old version $old_version not found in configure.ac"
+    exit 2
+fi
+
+# update release version in configure.ac
+$SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
+
+git add configure.ac
+git commit -m "v$new_version"
+git tag $new_tag
+
+git branch -D $release_branch
+git checkout -b $release_branch $current_branch
+
+# actually prep the release
+
+./bootstrap.sh
+$SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
+$SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
+$SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
+
+./configure --silent --enable-translation
+make dist-all
+make distclean
+git add -u
+git add errors/
+git commit -m "Squid v$new_version release"
+git tag $release_tag
+
+echo "time for pushing. Please run (when ready): "
+echo "git push upstream $current_branch $release_branch $new_tag $release_tag"
