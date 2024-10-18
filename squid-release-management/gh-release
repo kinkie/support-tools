@@ -23,6 +23,13 @@ cat <<_EOF
 use:
  $0 [-R Github-repo] <new version> <old version>
 
+If no ChangeLog entry exists for the new version, prepares one
+and helps prepare it for merge.
+
+Otherwise, prepare the release and tag the final version
+without artifact as SQUID_<NEW_RELEASE>. Create a branch
+named <version>-release and populate it with the
+release artifiacts, and finally tag it with RELEASE_<NEW_RELEASE>
 _EOF
 }
 
