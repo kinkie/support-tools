@@ -2,6 +2,8 @@
 
 set -euo pipefail
 repo=""
+origin="origin"
+upstream="upstream"
 
 # test for tools
 SED=`which gsed` ; SED=${SED:-sed}
@@ -21,7 +23,11 @@ fi
 usage() {
 cat <<_EOF
 use:
- $0 [-R Github-repo] <new version> <old version>
+ $0 [options]<new version> <old version>
+ options:
+   -R Github-repo
+   -o origin
+   -u upstream
 
 If no ChangeLog entry exists for the new version, prepares one
 and helps prepare it for merge.
@@ -33,10 +39,12 @@ release artifiacts, and finally tag it with RELEASE_<NEW_RELEASE>
 _EOF
 }
 
-while getopts "hR:" optchar ; do
+while getopts "hR:o:u:" optchar ; do
     case "${optchar}" in
     h) usage; exit 0;;
     R) repo="-R ${OPTARG}";;
+    o) origin="$OPTARG";;
+    u) upstream="$OPTARG";;
     -) break;;
     esac
 done
@@ -75,8 +83,7 @@ fi
 if git tag -l $new_tag | $FGREP -q $new_tag ; then
     echo "tag $new_tag is already defined"
     echo "If it shouldn't, use:"
-    echo "git tag -d $new_tag"
-    usage
+    echo "git tag -d $new_tag $release_tag"
     exit 2
 fi
 # check that release tag does not exist
@@ -84,7 +91,6 @@ if git tag -l $release_tag | $FGREP -q $release_tag ; then
     echo "tag $release_tag is already defined"
     echo "If it shouldn't, use:"
     echo "git tag -d $release_tag"
-    usage
     exit 2
 fi
 
@@ -92,6 +98,7 @@ fi
 if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
     if git branch -l $release_prep_branch | $FGREP -q $release_prep_branch ; then 
         git branch -D $release_prep_branch
+        git push -d $origin $release_prep_branch || true # ignore errors
     fi
     echo "Please prepare the ChangeLog and remove this line" >>$tmp_changelog_file
     echo "Changes in squid-${new_version} (`date '+%d %b %Y'`)" >>$tmp_changelog_file
@@ -103,8 +110,9 @@ if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
     git checkout -b $release_prep_branch $current_branch
     git add ChangeLog
     git commit -m "Prep for v$new_version"
-    git push --set-upstream origin
-    gh $repo pr create --base $current_branch --fill 
+    git push $origin # TODO: should we make a parameter?
+    gh $repo pr create --base $current_branch --title "Prep for v$new_version"
+    git switch $current_branch
     exit 0
 fi
 
@@ -134,11 +142,12 @@ $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/vers
 
 ./configure --silent --enable-translation
 make dist-all
-make distclean
+make distclean #TODO: is this to be done?
 git add -u
+# TODO: add artifacts (e.g. configure)
 git add errors/
 git commit -m "Squid v$new_version release"
 git tag $release_tag
 
 echo "time for pushing. Please run (when ready): "
-echo "git push upstream $current_branch $release_branch $new_tag $release_tag"
+echo "git push $upstream $release_branch $new_tag $release_tag"
