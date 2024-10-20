@@ -68,6 +68,7 @@ release_time=`date +%s`
 current_branch=`git branch --show-current`
 release_prep_branch="prep-v${new_version}"
 tmp_changelog_file="ChangeLog-$new_version"
+release_changelog_file="/tmp/squid-v${new_version}-changelog"
 
 echo "new: $new_tag old: $old_tag"
 echo "repository: $repo"
@@ -135,10 +136,13 @@ git checkout -b $release_branch $current_branch
 
 # actually prep the release
 
+git clean -fdx
 ./bootstrap.sh
 $SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
 $SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
 $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
+rm libltdl/config-h.in~ libltdl/configure~
+git add -f '**' # ignore .gitignore
 
 ./configure --silent --enable-translation
 make dist-all
@@ -149,5 +153,8 @@ git add errors/
 git commit -m "Squid v$new_version release"
 git tag $release_tag
 
+# prep changelog
+awk '/^$/{exit} {print}' ChangeLog >$release_changelog_file
 echo "time for pushing. Please run (when ready): "
 echo "git push $upstream $release_branch $new_tag $release_tag"
+echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.*"
