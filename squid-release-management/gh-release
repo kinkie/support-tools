@@ -154,7 +154,8 @@ git commit -m "Squid v$new_version release"
 git tag $release_tag
 
 # prep changelog
-awk '/^$/{exit} {print}' ChangeLog >$release_changelog_file
+export new_version
+awk "/^Changes in squid-${new_version}/{flag=1} /^$/{flag=0} flag" ChangeLog >$release_changelog_file
 echo "time for pushing. Please run (when ready): "
 echo "git push $upstream $release_branch $new_tag $release_tag"
 echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.*"
