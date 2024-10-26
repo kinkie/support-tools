@@ -58,10 +58,7 @@ package_release() {
 
     ./configure --silent --enable-translation
     make dist-all
-    make distclean #TODO: is this to be done?
-    git add -u
-# TODO: add artifacts (e.g. configure)
-    git add errors/
+    tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add
     git commit -m "Squid v$new_version release"
     git tag "$release_tag"
 
@@ -70,9 +67,10 @@ package_release() {
     awk "/^Changes in squid-${new_version}/{flag=1} /^$/{flag=0} flag" ChangeLog >$release_changelog_file
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
+    for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
     echo "time for pushing. Please run (when ready): "
     echo "git push $upstream $release_branch $push_tag $release_tag"
-    echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.*"
+    echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.* {ChangeLog,CONTRIBUTORS,COPYING,CREDITS,README,SPONSORS}.txt"
 }
 
 # argument: a tag. Returns 0 if the tag exists, 1 if it doesn't
@@ -129,6 +127,10 @@ if ! have_tag "$old_tag" ; then
 fi
 
 if [ -n "$backfill" ]; then
+    if ! have_tag "$new_tag" ; then
+        echo "Error: backfill requested but missing tag $new_tag"
+        exit 2
+    fi
     git reset --hard "$new_tag"
     git clean -fdx
     git branch -D "$release_branch" || true
@@ -139,15 +141,9 @@ if [ -n "$backfill" ]; then
     exit 0
 fi
 
-# check that release tag does not exist
-if have_tag "$release_tag" ; then
-    echo "tag $release_tag is already defined"
-    echo "If it shouldn't, use:"
-    echo "git tag -d $release_tag"
-    echo "If you also want to delete the anchor tag, then"
-    echo "git tag -d $new_tag"
-    exit 2
-fi
+# not a backfill. Wipe tags
+have_tag "$release_tag" && git tag -d "$release_tag"
+have_tag "$new_tag" && git tag -d "$new_tag"
 
 # if the ChangeLog is not ready, prepare one and bail
 if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
