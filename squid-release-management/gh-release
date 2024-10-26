@@ -54,10 +54,10 @@ package_release() {
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
     $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
     rm -f libltdl/config-h.in~ libltdl/configure~
-    git add -f '**' # ignore .gitignore
+    # git add -f '**' # ignore .gitignore
 
     ./configure --silent --enable-translation
-    make dist-all
+    make -j`nproc` dist-all
     tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add -f
     git commit -m "Squid v$new_version release"
     git tag "$release_tag"
