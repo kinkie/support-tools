@@ -106,12 +106,13 @@ package_release() {
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
+    # cp doc/release-notes/*.html RELEASENOTES.html
     signfiles ChangeLog.txt CONTRIBUTORS.txt COPYING.txt \
-        CREDITS.txt README.txt SPONSORS.txt \
+        CREDITS.txt README.txt SPONSORS.txt RELEASENOTES.html \
         squid-${new_version}.tar.*
     tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add -f
     git *.asc
-    local filelist=`ls *.txt *.asc squid-${new_version}.tar.* | sort -u | xargs echo`
+    local filelist=`ls *.txt *.html *.asc squid-${new_version}.tar.* | sort -u | xargs echo`
     git commit -m "Squid v$new_version release"
     git tag "$release_tag"
     echo "time for pushing. Please run (when ready): "
