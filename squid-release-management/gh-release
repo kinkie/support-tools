@@ -107,7 +107,7 @@ package_release() {
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
-    # cp doc/release-notes/*.html RELEASENOTES.html
+    cp doc/release-notes/*.html RELEASENOTES.html
     signfiles ChangeLog.txt CONTRIBUTORS.txt COPYING.txt \
         CREDITS.txt README.txt SPONSORS.txt RELEASENOTES.html \
         squid-${new_version}.tar.*
