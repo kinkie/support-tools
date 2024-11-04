@@ -45,9 +45,10 @@ _EOF
 }
 
 package_release() {
-# actually prep the release
+    # actually prep the release
 
     git clean -fdx
+    git branch -D $release_branch || true
     git checkout -b $release_branch $current_branch
     ./bootstrap.sh
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
@@ -62,12 +63,13 @@ package_release() {
     git commit -m "Squid v$new_version release"
     git tag "$release_tag"
 
-# prep changelog
+    # prep changelog
     export new_version
     awk "/^Changes in squid-${new_version}/{flag=1} /^$/{flag=0} flag" ChangeLog >$release_changelog_file
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
+    cp doc/release-notes/*.html RELEASENOTES.html
     echo "time for pushing. Please run (when ready): "
     echo "git push $upstream $release_branch $push_tag $release_tag"
     echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.* {ChangeLog,CONTRIBUTORS,COPYING,CREDITS,README,SPONSORS}.txt"
