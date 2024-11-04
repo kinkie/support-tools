@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -u -o pipefail
 repo=""
 origin="origin"
 upstream="upstream"
 backfill=""
+# sets SIGNKEY, EMAIL, GPGHOME. May set other variables
+test -f "$HOME/.squidrelease.rc" && . "$HOME/.squidrelease.rc"
+
+# args: variable and tool name. if variable is empty, bail
+require() { if [ -z "$1" ]; then echo "$2 is required"; exit 1; fi }
 
 # test for tools
-SED=`which gsed` ; SED="${SED:-sed}"
-FGREP=`which fgrep`; FGREP="${FGREP:-fgrep}"
+SED="${SED:-`which gsed`}"; SED="${SED:-`which sed`}"; require "${SED:-}" sed
+FGREP=${FGREP:-`which fgrep`}; FGREP="${FGREP:-`which fgrep`}"; require "${FGREP:-}" fgrep
+GPG=${GPG:-`which gpg`}; require "${GPG:-}" gpg
+GH=${GH:-`which gh`}; require "${GH:-}" gh
+
+require "${SIGNKEY:-}" "SIGNKEY setting"
+require "${EMAIL:-}" "EMAIL setting"
 
 po2html=`which po2html`
 if test -z "$po2html" ; then
@@ -32,7 +42,8 @@ use:
    -u <upstream>: (git) remote repository with public sources to use
                   default "upstream"
    -b : this is a backfill. Create a release for <new version> using
-        preexisting tags.
+        preexisting tags
+   -g <path/to/gpg-trustdb>:
 
 If no ChangeLog entry exists for the new version, prepares one
 and helps prepare it for merge.
@@ -42,6 +53,36 @@ without artifact as SQUID_<NEW_RELEASE>. Create a branch
 named <version>-release and populate it with the
 release artifiacts, and finally tag it with RELEASE_<NEW_RELEASE>
 _EOF
+}
+
+# argument: the files to be signed
+# uses GPG, SIGNKEY, EMAIL, GPGHOME
+signfiles() {
+    local OLDTZ="${TZ:-}"
+    export TZ=GMT
+    for file; do
+        size="`stat $file | awk '/Size:/ {print $2;}'`"
+        time="`date -u -r $file`"
+        md5="`md5sum -b $file | awk '{print $1;}'`"
+        sha1="`sha1sum --b $file | awk '{print $1;}'`"
+        fingerprint=`$GPG --fingerprint $SIGNKEY | grep -v -E "^[up]" | grep -v -E "^$"`
+        (
+            cat <<EOF
+File: $file
+Date: $time
+Size: $size
+MD5 : $md5
+SHA1: $sha1
+Key : $SIGNKEY $EMAIL
+      $fingerprint
+      keyring = http://www.squid-cache.org/pgp.asc
+      keyserver = pool.sks-keyservers.net
+EOF
+        $GPG ${GPGHOME:+ --homedir $GPGHOME} --use-agent --default-key $SIGNKEY -o- -ba $file
+        ) > $file.asc
+    done
+    TZ="$OLDTZ"
+    test -z "$TZ" && unset TZ
 }
 
 package_release() {
@@ -54,14 +95,11 @@ package_release() {
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
     $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
-    rm libltdl/config-h.in~ libltdl/configure~
-    git add -f '**' # ignore .gitignore
+    rm -f libltdl/config-h.in~ libltdl/configure~
+    # git add -f '**' # ignore .gitignore
 
     ./configure --silent --enable-translation
-    make dist-all
-    tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add
-    git commit -m "Squid v$new_version release"
-    git tag "$release_tag"
+    make -j`nproc` dist-all
 
     # prep changelog
     export new_version
@@ -69,10 +107,18 @@ package_release() {
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
-    cp doc/release-notes/*.html RELEASENOTES.html
+    # cp doc/release-notes/*.html RELEASENOTES.html
+    signfiles ChangeLog.txt CONTRIBUTORS.txt COPYING.txt \
+        CREDITS.txt README.txt SPONSORS.txt RELEASENOTES.html \
+        squid-${new_version}.tar.*
+    tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add -f
+    git *.asc
+    local filelist=`ls *.txt *.html *.asc squid-${new_version}.tar.* | sort -u | xargs echo`
+    git commit -m "Squid v$new_version release"
+    git tag "$release_tag"
     echo "time for pushing. Please run (when ready): "
-    echo "git push $upstream $release_branch $push_tag $release_tag"
-    echo "gh $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" squid-${new_version}.tar.* {ChangeLog,CONTRIBUTORS,COPYING,CREDITS,README,SPONSORS}.txt"
+    echo "git push $upstream $release_branch ${push_tag:-} $release_tag"
+    echo "$GH $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" $filelist"
 }
 
 # argument: a tag. Returns 0 if the tag exists, 1 if it doesn't
@@ -164,7 +210,7 @@ if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
     git add ChangeLog
     git commit -m "Prep for v$new_version"
     git push $origin
-    gh $repo pr create --base $current_branch --title "Prep for v$new_version"
+    $GH $repo pr create --base $current_branch --title "Prep for v$new_version"
     git switch $current_branch
 
     echo
