@@ -5,6 +5,7 @@ repo=""
 origin="origin"
 upstream="upstream"
 backfill=""
+push=""
 # sets SIGNKEY, EMAIL, GPGHOME. May set other variables
 test -f "$HOME/.squidrelease.rc" && . "$HOME/.squidrelease.rc"
 
@@ -43,15 +44,12 @@ use:
                   default "upstream"
    -b : this is a backfill. Create a release for <new version> using
         preexisting tags
+   -p : push, do not ask to push
    -g <path/to/gpg-trustdb>:
 
 If no ChangeLog entry exists for the new version, prepares one
 and helps prepare it for merge.
 
-Otherwise, prepare the release and tag the final version
-without artifact as SQUID_<NEW_RELEASE>. Create a branch
-named <version>-release and populate it with the
-release artifiacts, and finally tag it with RELEASE_<NEW_RELEASE>
 _EOF
 }
 
@@ -99,26 +97,31 @@ package_release() {
     # git add -f '**' # ignore .gitignore
 
     ./configure --silent --enable-translation
-    make -j`nproc` dist-all
+    make -j`nproc` -l`nproc` dist-all
 
     # prep changelog
     export new_version
-    awk "/^Changes in squid-${new_version}/{flag=1} /^$/{flag=0} flag" ChangeLog >$release_changelog_file
+    awk "/^Changes (in|to) squid-${new_version} /{flag=2} /^$/{flag=flag-1} flag>0" ChangeLog >$release_changelog_file
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
-    for file in ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS; do cp $file $file.txt; done
-    cp doc/release-notes/*.html RELEASENOTES.html
-    signfiles ChangeLog.txt CONTRIBUTORS.txt COPYING.txt \
-        CREDITS.txt README.txt SPONSORS.txt RELEASENOTES.html \
-        squid-${new_version}.tar.*
-    tar tfz squid-${new_version}.tar.gz | sed 's@^[^/]*/@@' | grep -v '/$' | xargs git add -f
-    git *.asc
-    local filelist=`ls *.txt *.html *.asc squid-${new_version}.tar.* | sort -u | xargs echo`
-    git commit -m "Squid v$new_version release"
-    git tag "$release_tag"
-    echo "time for pushing. Please run (when ready): "
-    echo "git push $upstream $release_branch ${push_tag:-} $release_tag"
-    echo "$GH $repo release create $release_tag -F $release_changelog_file --title "v${new_version}" $filelist"
+    # relevant metadata files: ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS.list doc/release-notes/release-*.html
+    signfiles squid-${new_version}.tar.*
+    filelist=""
+    for f in *.tar.??
+    do
+        filelist="$filelist ${f}#Bootstrapped\ ${f#squid-${new_version}.} archive" # FIXME: quotes and name
+    done
+    for f in *.asc
+    do
+        filelist="$filelist ${f}#Signature\ fo\r ${f%.asc}" # FIXME quotes
+    done
+
+    if [ "$push" = "yes" ] ; then
+        $GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
+    else
+        echo "time for pushing. Please run (when ready): "
+        echo $GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
+    fi
 }
 
 # argument: a tag. Returns 0 if the tag exists, 1 if it doesn't
@@ -132,13 +135,14 @@ have_branch() {
     return $?
 }
 
-while getopts "hR:o:u:b" optchar ; do
+while getopts "hR:o:u:bp" optchar ; do
     case "${optchar}" in
     h) usage; exit 0;;
     R) repo="-R ${OPTARG}";;
     o) origin="$OPTARG";;
     u) upstream="$OPTARG";;
     b) backfill="yes";;
+    p) push="yes";;
     -) break;;
     esac
 done
@@ -155,8 +159,6 @@ old_version="$2"
 new_tag=SQUID_`echo $new_version | tr . _`
 old_tag=SQUID_`echo $old_version | tr . _`
 
-release_tag=RELEASE_`echo $new_version | tr . _`
-release_branch="${new_version}-release"
 release_time=`date +%s`
 
 current_branch=`git branch --show-current`
@@ -168,12 +170,14 @@ echo "new: $new_tag old: $old_tag"
 echo "repository: $repo"
 
 # check that old tag exists
+# TODO: move to new-release only
 if ! have_tag "$old_tag" ; then
     echo "could not find tag $old_tag"
     usage
     exit 2
 fi
 
+## TODO: REDO BACKFILL starting from tarball
 if [ -n "$backfill" ]; then
     if ! have_tag "$new_tag" ; then
         echo "Error: backfill requested but missing tag $new_tag"
@@ -181,16 +185,12 @@ if [ -n "$backfill" ]; then
     fi
     git reset --hard "$new_tag"
     git clean -fdx
-    git branch -D "$release_branch" || true
-    git tag -d "$release_tag" || true
-    git push -d origin "$release_branch" "$release_tag" || true
     # TODO: here
     package_release
     exit 0
 fi
 
 # not a backfill. Wipe tags
-have_tag "$release_tag" && git tag -d "$release_tag"
 have_tag "$new_tag" && git tag -d "$new_tag"
 
 # if the ChangeLog is not ready, prepare one and bail
@@ -200,7 +200,8 @@ if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
         git push -d "$origin" "$release_prep_branch" || true # ignore errors
     fi
     echo "Please prepare the ChangeLog and remove this line" >>$tmp_changelog_file
-    echo "Changes in squid-${new_version} (`date '+%d %b %Y'`)" >>$tmp_changelog_file
+    echo "Changes in squid-${new_version} (`date '+%d %b %Y'`):" >>$tmp_changelog_file
+    echo "" >>$tmp_changelog_file
     git log --no-decorate --oneline ${old_tag}.. | $SED 's@^[^ ]* @	- @;s@(#[0-9]*)$@@' >>$tmp_changelog_file
     echo >> $tmp_changelog_file
     cat ChangeLog >> $tmp_changelog_file
@@ -209,6 +210,7 @@ if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
     git checkout -b $release_prep_branch $current_branch
     git add ChangeLog
     git commit -m "Prep for v$new_version"
+    git push -d $origin $release_prep_branch
     git push $origin
     $GH $repo pr create --base $current_branch --title "Prep for v$new_version"
     git switch $current_branch
@@ -236,7 +238,6 @@ $SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
 git add configure.ac
 git commit -m "v$new_version"
 git tag $new_tag
-
-git branch -D $release_branch
+git push origin HEAD $new_tag
 
 package_release
