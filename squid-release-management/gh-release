@@ -111,7 +111,7 @@ package_release() {
     done
     for f in *.asc
     do
-        filelist="$filelist ${f}#Signature\ fo\r ${f%.asc}" # FIXME quotes
+        filelist="$filelist ${f}#Signature\ for\ ${f%.asc}" # FIXME quotes
     done
 
     if [ "$push" = "yes" ] ; then
