@@ -58,9 +58,9 @@ _EOF
 signfiles() {
     local OLDTZ="${TZ:-}"
     export TZ=GMT
+    local time=`git show --pretty='%aD' --no-patch $new_tag`
     for file; do
         size="`stat $file | awk '/Size:/ {print $2;}'`"
-        time="`date -u -r $file`"
         md5="`md5sum -b $file | awk '{print $1;}'`"
         sha1="`sha1sum --b $file | awk '{print $1;}'`"
         fingerprint=`$GPG --fingerprint $SIGNKEY | grep -v -E "^[up]" | grep -v -E "^$"`
@@ -87,8 +87,6 @@ package_release() {
     # actually prep the release
 
     git clean -fdx
-    git branch -D $release_branch || true
-    git checkout -b $release_branch $current_branch
     ./bootstrap.sh
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
     $SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
@@ -135,7 +133,7 @@ have_branch() {
     return $?
 }
 
-while getopts "hR:o:u:bp" optchar ; do
+while getopts "hR:o:u:bpg:" optchar ; do
     case "${optchar}" in
     h) usage; exit 0;;
     R) repo="-R ${OPTARG}";;
@@ -143,6 +141,7 @@ while getopts "hR:o:u:bp" optchar ; do
     u) upstream="$OPTARG";;
     b) backfill="yes";;
     p) push="yes";;
+    g) GPGHOME="$OPTARG";;
     -) break;;
     esac
 done
@@ -185,6 +184,7 @@ if [ -n "$backfill" ]; then
     fi
     git reset --hard "$new_tag"
     git clean -fdx
+
     # TODO: here
     package_release
     exit 0
