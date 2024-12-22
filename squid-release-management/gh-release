@@ -88,8 +88,8 @@ package_release() {
 
     git clean -fdx
     ./bootstrap.sh
-    $SED -i~ "s@${new_version}-VCS@${new_version}@" configure.ac && rm configure.ac~
-    $SED -i~ "s@${new_version}-VCS@${new_version}@" configure && rm configure~
+    $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure.ac && rm configure.ac~
+    $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure && rm configure~
     $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
     rm -f libltdl/config-h.in~ libltdl/configure~
     # git add -f '**' # ignore .gitignore
