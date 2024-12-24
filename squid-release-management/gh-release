@@ -56,31 +56,29 @@ _EOF
 # argument: the files to be signed
 # uses GPG, SIGNKEY, EMAIL, GPGHOME
 signfiles() {
-    local OLDTZ="${TZ:-}"
-    export TZ=GMT
-    local time=`git show --pretty='%aD' --no-patch $new_tag`
+    local releasedate=$(date '+%d %b %Y' -d "$(git show --pretty=%cI --no-patch $new_tag)")
     for file; do
         size="`stat $file | awk '/Size:/ {print $2;}'`"
         md5="`md5sum -b $file | awk '{print $1;}'`"
-        sha1="`sha1sum --b $file | awk '{print $1;}'`"
+        sha1="`sha1sum -b $file | awk '{print $1;}'`"
+        sha256="`sha256sum -b $file | awk '{print $1;}'`"
         fingerprint=`$GPG --fingerprint $SIGNKEY | grep -v -E "^[up]" | grep -v -E "^$"`
         (
             cat <<EOF
-File: $file
-Date: $time
-Size: $size
-MD5 : $md5
-SHA1: $sha1
-Key : $SIGNKEY $EMAIL
-      $fingerprint
-      keyring = http://www.squid-cache.org/pgp.asc
-      keyserver = pool.sks-keyservers.net
+File  : $file
+Date  : $releasedate
+Size  : $size
+MD5   : $md5
+SHA1  : $sha1
+SHA256: $sha256
+Key   : $SIGNKEY $EMAIL
+        $fingerprint
+        keyring = http://www.squid-cache.org/pgp.asc
+        keyserver = pool.sks-keyservers.net
 EOF
         $GPG ${GPGHOME:+ --homedir $GPGHOME} --use-agent --default-key $SIGNKEY -o- -ba $file
         ) > $file.asc
     done
-    TZ="$OLDTZ"
-    test -z "$TZ" && unset TZ
 }
 
 package_release() {
@@ -90,7 +88,7 @@ package_release() {
     ./bootstrap.sh
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure.ac && rm configure.ac~
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure && rm configure~
-    $SED -i~ "s@squid_curtime@${release_time}@" include/version.h && rm include/version.h~
+    $SED -i~ "s@squid_curreleasedate@${release_timestamp}@" include/version.h && rm include/version.h~
     rm -f libltdl/config-h.in~ libltdl/configure~
     # git add -f '**' # ignore .gitignore
 
@@ -107,7 +105,7 @@ package_release() {
     filelist=""
     for f in *.tar.??
     do
-        filelist="$filelist ${f}#Bootstrapped\ ${f#squid-${new_version}.} archive" # FIXME: quotes and name
+        filelist="$filelist ${f}#Bootstrapped\ ${f#squid-${new_version}.}\ archive" # FIXME: quotes and name
     done
     for f in *.asc
     do
@@ -117,8 +115,8 @@ package_release() {
     if [ "$push" = "yes" ] ; then
         $GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
     else
-        echo "time for pushing. Please run (when ready): "
-        echo $GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
+        echo "releasedate for pushing. Please run (when ready): "
+        echo $GH $   release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
     fi
 }
 
@@ -158,7 +156,7 @@ old_version="$2"
 new_tag=SQUID_`echo $new_version | tr . _`
 old_tag=SQUID_`echo $old_version | tr . _`
 
-release_time=`date +%s`
+release_timestamp=$(date +%s -d "`git show --pretty=%cI --no-patch $new_tag`")
 
 current_branch=`git branch --show-current`
 release_prep_branch="prep-v${new_version}"
@@ -222,7 +220,7 @@ if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
 fi
 
 
-# TODO: if have_tag $new_release, then get to that point in time and
+# TODO: if have_tag $new_release, then get to that point in releasedate and
 #       skip fixing changelog
 # check that the release in configure.ac is what we expect it to be
 if ! $FGREP -q "AC_INIT([Squid Web Proxy],[${new_version}-VCS],[https://bugs.squid-cache.org/],[squid])" configure.ac ; then
