@@ -102,22 +102,24 @@ package_release() {
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     # relevant metadata files: ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS.list doc/release-notes/release-*.html
     signfiles squid-${new_version}.tar.*
-    filelist=""
+    declare -a filelist
     for f in *.tar.??
     do
-        filelist="$filelist ${f}#Bootstrapped\ ${f#squid-${new_version}.}\ archive" # FIXME: quotes and name
+        filelist+=(" '${f}#Bootstrapped ${f#squid-${new_version}.} archive'")
     done
     for f in *.asc
     do
-        filelist="$filelist ${f}#Signature\ for\ ${f%.asc}" # FIXME quotes
+        filelist+=(" '${f}#Signature for ${f%.asc}'")
     done
 
+    pushcmd="$GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" ${filelist[@]}"
     if [ "$push" = "yes" ] ; then
-        $GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
+        eval $pushcmd
+        echo "pushed! command:"
     else
-        echo "releasedate for pushing. Please run (when ready): "
-        echo $GH $   release create $new_tag -F $release_changelog_file --title "v${new_version}" $filelist
+        echo "Ready for pushing. To do it, run: "
     fi
+    echo $pushcmd
 }
 
 # argument: a tag. Returns 0 if the tag exists, 1 if it doesn't
