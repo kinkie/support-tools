@@ -6,6 +6,7 @@ origin="origin"
 upstream="upstream"
 backfill=""
 push=""
+changelog_file=${changelog_file:-ChangeLog}
 # sets SIGNKEY, EMAIL, GPGHOME. May set other variables
 test -f "$HOME/.squidrelease.rc" && . "$HOME/.squidrelease.rc"
 
@@ -97,19 +98,17 @@ package_release() {
 
     # prep changelog
     export new_version
-    awk "/^Changes (in|to) squid-${new_version} /{flag=2} /^$/{flag=flag-1} flag>0" ChangeLog >$release_changelog_file
+    awk "/^Changes (in|to) squid-${new_version} /{flag=2} /^$/{flag=flag-1} flag>0" ${changelog_file} >$release_changelog_file
     local push_tag
     if [ -z "$backfill" ] ; then push_tag="$new_tag" ; fi
     # relevant metadata files: ChangeLog CONTRIBUTORS COPYING CREDITS README SPONSORS.list doc/release-notes/release-*.html
     signfiles squid-${new_version}.tar.*
     declare -a filelist
-    for f in *.tar.??
+    filelist=()
+    for f in *.tar.?? *.tar.???
     do
-        filelist+=(" '${f}#Bootstrapped ${f#squid-${new_version}.} archive'")
-    done
-    for f in *.asc
-    do
-        filelist+=(" '${f}#Signature for ${f%.asc}'")
+        filelist+=(" '${f}#Bootstrapped sources: ${f}'")
+        filelist+=(" '${f}.asc#Signature for ${f}'")
     done
 
     pushcmd="$GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" ${filelist[@]}"
@@ -163,7 +162,7 @@ release_timestamp=$(date +%s -d "`git show --pretty=%cI --no-patch $new_tag`")
 current_branch=`git branch --show-current`
 release_prep_branch="prep-v${new_version}"
 tmp_changelog_file="ChangeLog-$new_version"
-release_changelog_file="/tmp/squid-v${new_version}-changelog"
+release_changelog_file="/tmp/${tmp_changelog_file}"
 
 echo "new: $new_tag old: $old_tag"
 echo "repository: $repo"
@@ -194,7 +193,7 @@ fi
 have_tag "$new_tag" && git tag -d "$new_tag"
 
 # if the ChangeLog is not ready, prepare one and bail
-if ! fgrep -q "Changes in squid-${new_version}" ChangeLog; then
+if ! fgrep -q "Changes in squid-${new_version}" ${changelog_file}; then
     if have_branch "$release_prep_branch" ; then
         git branch -D "$release_prep_branch"
         git push -d "$origin" "$release_prep_branch" || true # ignore errors
