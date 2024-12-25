@@ -1,0 +1,2 @@
+# delete all releases
+gh -R kinkie/squid release list -L 120 --json tagName  --template '{{range .}}{{.tagName}}{{"\n"}}{{end}}'  | xargs -n 1 gh -R kinkie/squid release delete
