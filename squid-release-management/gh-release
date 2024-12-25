@@ -92,16 +92,16 @@ signfiles() {
         fingerprint=`$GPG --fingerprint $SIGNKEY | grep -v -E "^[up]" | grep -v -E "^$"`
         (
             cat <<EOF
-File  : $file
-Date  : $release_timedate
-Size  : $size
-MD5   : $md5
-SHA1  : $sha1
-SHA256: $sha256
-Key   : $SIGNKEY $EMAIL
-        $fingerprint
-        keyring = http://www.squid-cache.org/pgp.asc
-        keyserver = pool.sks-keyservers.net
+File     : $file
+Date     : $release_timedate
+Size     : $size
+MD5      : $md5
+SHA1     : $sha1
+SHA256   : $sha256
+Key      : $SIGNKEY $EMAIL
+Fingerprint: $fingerprint
+Keyring  : http://www.squid-cache.org/pgp.asc
+Keyserver: keyserver.ubuntu.com
 EOF
         $GPG ${GPGHOME:+ --homedir $GPGHOME} --use-agent --default-key $SIGNKEY -o- -ba $file
         ) > $file.asc
