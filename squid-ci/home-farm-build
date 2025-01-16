@@ -62,10 +62,17 @@ cache_file=$config_cache_dir/config-$(uname -m)-${ID}-${VERSION_CODENAME}-${COMP
 export cache_file
 
 SECONDS=0
+
 echo "***** Start time: $(date) *****"
+echo -n "Cache file: "; ls -l $cache_file || true
+echo
+
 ./test-builds.sh $@
 result=$?
 minutes=$(( $SECONDS / 60 ))
+
 echo "***** End time: $(date) ($minutes minutes wall time on ${NODE_NAME:-$HOSTNAME}) *****"
+
+${ccache_cmd:-true} -s
 
 exit $result
