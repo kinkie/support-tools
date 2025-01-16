@@ -1,0 +1,3 @@
+#!/bin/bash
+
+gh -R squid-cache/squid release list --exclude-drafts -L 3000 --json tagName --jq '.[].tagName' | xargs -n 1 -I'{}' gh -R squid-cache/squid release view '{}' --json assets --jq '.assets[] | (.name + ": " + (.downloadCount|tostring))' | grep -v ': 0$'

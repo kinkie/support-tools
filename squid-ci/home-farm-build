@@ -1,0 +1,71 @@
+#!/bin/bash -l
+# options:
+# -j <jobs>|"auto"  : parallelism
+# -c                : enable ccache
+# arguments:
+# compiler name
+
+COMPILER=${COMPILER:-gcc}
+echo "revno: $GIT_COMMIT"
+export LANG=${LANG:-C}
+export CCACHE_COMPRESS=true
+ccache_cmd=""
+
+# can set pjobs and other vars
+test -e $HOME/.farm-build.rc && . $HOME/.farm-build.rc
+test -e /etc/os-release && . /etc/os-release # get ID and VERSION_CODENAME
+
+autojobs() {
+    case "$1" in
+    auto) export pjobs="-j`nproc` -l$((`nproc`+1))" ;;
+    *) export pjobs="$1"
+    esac
+}
+
+while getopts "j:c-" optchar; do
+  case "${optchar}" in
+    j) autojobs ${OPTARG};;
+    c) ccache_cmd=`type -path ccache`;;
+    -) break ;;
+  esac
+done
+shift $((OPTIND -1))
+
+case $1 in
+  gcc*|clang*|icc*|egcc*) COMPILER=$1; shift ;;
+esac
+
+set_compiler_variables() {
+    case "$COMPILER" in
+      gcc*) CC="$ccache_cmd gcc${COMPILER#gcc}"; CXX="$ccache_cmd g++${COMPILER#gcc}";;
+      clang*) CC="$ccache_cmd clang${COMPILER#clang}"; CXX="$ccache_cmd clang++${COMPILER#clang}";;
+      icc) CC="icc"; CXX="icpc";;
+      *) echo "Unknown COMPILER set, aborting"; exit 1;;
+    esac
+}
+
+set_compiler_variables
+# custom command paths 
+for extrapath in \
+  /home/jenkins/bin \
+  /opt/rh/devtoolset-2/root/usr/bin
+do
+  test -d "$extrapath" && export PATH="$extrapath:$PATH"
+done
+
+export CC CXX
+
+# cache file . will be ignored unless we received as argument --aggressively-use-config-cache
+config_cache_dir=$HOME/lib/config-cache
+test -d $config_cache_dir || mkdir -p $config_cache_dir
+cache_file=$config_cache_dir/config-$(uname -m)-${ID}-${VERSION_CODENAME}-${COMPILER}.cache
+export cache_file
+
+SECONDS=0
+echo "***** Start time: $(date) *****"
+./test-builds.sh $@
+result=$?
+minutes=$(( $SECONDS / 60 ))
+echo "***** End time: $(date) ($minutes minutes wall time on ${NODE_NAME:-$HOSTNAME}) *****"
+
+exit $result
