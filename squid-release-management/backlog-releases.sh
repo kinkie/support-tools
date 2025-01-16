@@ -11,6 +11,8 @@
 repo="$1"; shift
 tagsfile="$1"; shift
 mydir=`dirname $0`
+# dryrun="echo" # set to echo for dryrun, eval for the real deal
+dryrun="eval"
 
 # tags: contents of the tagsfile
 # versions: array of versions in lexicographic order from list of files
@@ -62,7 +64,7 @@ do
     # if no tag exists, add assets to HISTORIC_RELEASES
     if [ -z "${vermap[$v]}" ]; then
         assets=`decorate squid-${v}.*`
-        echo gh -R $repo release upload HISTORIC_RELEASES $assets
+        $dryrun gh -R $repo release upload HISTORIC_RELEASES $assets
         continue
     fi
 
@@ -75,5 +77,6 @@ do
     test -n "$samplefile" || exit 1 # leave if can't find a changelog file
     tar xvf $samplefile -O squid-$v/ChangeLog | awk 'BEGIN {flag=2} /^Changes/ {flag=flag-1} flag>0' >$release_changelog_file
     assets=`decorate squid-${v}.*`
-    echo gh -R $repo release create ${vermap[$v]} -F $release_changelog_file --title "v${v}" $assets
+    $dryrun gh -R $repo release create ${vermap[$v]} -F $release_changelog_file --title "v${v}" $assets
+    sleep 1
 done

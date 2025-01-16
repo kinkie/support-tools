@@ -1,2 +1,15 @@
 # delete all releases
 gh -R kinkie/squid release list -L 120 --json tagName  --template '{{range .}}{{.tagName}}{{"\n"}}{{end}}'  | xargs -n 1 gh -R kinkie/squid release delete
+
+# create HISTORIC_RELEASES release
+gh -R kinkie/squid release create HISTORIC_RELEASES
+
+# generate TAGS
+git tag -l --sort=committerdate SQUID_\* >TAGS
+
+# process:
+- delete all releases
+- create HISTORIC_RELEASES release
+- generate TAGS file
+- re-sign files and ensure .asc files are accurate and all files to update are in dir
+- run backlog-releases.sh <repo> TAGS in the directory containing the files to upload
