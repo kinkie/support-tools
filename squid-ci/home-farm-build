@@ -60,6 +60,7 @@ config_cache_dir=$HOME/lib/config-cache
 test -d $config_cache_dir || mkdir -p $config_cache_dir
 cache_file=$config_cache_dir/config-$(uname -m)-${ID}-${VERSION_CODENAME:-${VERSION_ID}}-${COMPILER}.cache
 export cache_file
+export DISTCHECK_CONFIGURE_FLAGS="--cache-file=$cache_file"
 
 SECONDS=0
 
