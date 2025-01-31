@@ -219,7 +219,7 @@ if ! fgrep -q "Changes in squid-${new_version}" ${changelog_file}; then
     echo "Please prepare the ChangeLog and remove this line" >>$tmp_changelog_file
     echo "Changes in squid-${new_version} (${release_date}):" >>$tmp_changelog_file
     echo "" >>$tmp_changelog_file
-    git log --no-decorate --oneline ${old_tag}.. | $SED 's@^[^ ]* @	- @;s@(#[0-9]*)$@@' >>$tmp_changelog_file
+    git log --no-decorate --oneline ${old_tag}.. | $SED 's@^[^ ]* @	- @;s@(#[0-9]*)$@@;s@  *$@@g' >>$tmp_changelog_file
     echo >> $tmp_changelog_file
     cat ChangeLog >> $tmp_changelog_file
     mv $tmp_changelog_file ChangeLog
