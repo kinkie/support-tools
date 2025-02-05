@@ -1,0 +1,44 @@
+#!/bin/bash
+set -eui -o pipefail
+
+CFGMAN_REPO=git@github.com:kinkie/squid-cfgman.github.io.git
+TMPDIR=`mktemp -d`
+starting_revision=`git rev-parse --verify HEAD`
+
+if [ ! -x scripts/www/build-cfg-help.pl ]; then
+    echo "can't find scripts/www/build-cfg-help.pl"
+    exit 1
+fi
+
+# arguments: tag
+mk_cfgman() {
+    git reset --hard $1
+    git clean -fdx
+    test -x ./configure || ./bootstrap.sh
+    ./configure
+    eval `grep "^ *PACKAGE_VERSION=" configure | sed -e 's/-VCS//' | sed -e 's/PACKAGE_//'` # set VERSION
+    eval `grep "^ *PACKAGE_TARNAME=" configure | sed -e 's/_TARNAME//'` # set PACKAGE
+    MAJORVERSION=`echo $VERSION | sed 's/\..*//'`
+
+    make -l`nproc` -C src cf.data
+    mkdir -p $TMPDIR/v${MAJORVERSION}
+
+    ./scripts/www/build-cfg-help.pl --version $VERSION -o $TMPDIR/v${MAJORVERSION} src/cf.data
+}
+
+
+git clone --depth=1 $CFGMAN_REPO $TMPDIR
+for RELEASE_TAG in $(for major in `git tag -l SQUID_\* | cut -f2 -d_ | sort -u `; do git tag -l --sort=committerdate "SQUID_${major}_*" | tail -1 ; done); do
+    mk_cfgman $RELEASE_TAG
+done
+
+cd $TMPDIR
+git add .
+git commit -m "Update cfgman on `date`"
+git push origin `git branch --show-current`:`git branch --show-current`
+
+git reset --hard $starting_revision
+git clean -fdx
+
+echo "done. You can run :"
+echo "rm -rf $TMPDIR"
