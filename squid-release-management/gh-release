@@ -184,7 +184,7 @@ echo "repository: $repo"
 
 # check that old tag exists
 # TODO: move to new-release only
-if ! have_tag "$old_tag" ; then
+if false &&  ! have_tag "$old_tag" ; then
     echo "could not find tag $old_tag"
     usage
     exit 2
@@ -255,6 +255,6 @@ $SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
 git add configure.ac
 git commit -m "v$new_version"
 git tag $new_tag
-git push origin HEAD $new_tag
+git push "$upstream" HEAD $new_tag
 
 package_release
