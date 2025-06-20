@@ -117,7 +117,7 @@ package_release() {
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure.ac && rm configure.ac~
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure && rm configure~
     $SED -i~ "s@squid_curreleasedate@${release_timestamp}@" include/version.h && rm include/version.h~
-    rm -f libltdl/config-h.in~ libltdl/configure~
+    rm -rf libltdl/config-h.in~ libltdl/configure~ .github
     # git add -f '**' # ignore .gitignore
 
     ./configure --silent --enable-translation
