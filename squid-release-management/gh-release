@@ -254,6 +254,7 @@ $SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
 
 git add configure.ac
 git commit -m "v$new_version"
+git push "$upstream"
 git tag $new_tag
 git push "$upstream" HEAD $new_tag
 
