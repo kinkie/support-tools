@@ -137,6 +137,7 @@ package_release() {
         filelist+=(" '${f}#Bootstrapped sources: ${f}'")
         filelist+=(" '${f}.asc#Signature for ${f}'")
     done
+    test -d "RELEASENOTES.html" && filelist+=(" 'RELEASENOTES.html#Release notes'")
 
     pushcmd="$GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" ${filelist[@]}"
     if [ "$push" = "yes" ] ; then
