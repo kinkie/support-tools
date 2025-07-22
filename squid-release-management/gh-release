@@ -117,7 +117,7 @@ package_release() {
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure.ac && rm configure.ac~
     $SED -i~ "s@${new_version}-\(VCS\|CVS\)@${new_version}@" configure && rm configure~
     $SED -i~ "s@squid_curreleasedate@${release_timestamp}@" include/version.h && rm include/version.h~
-    rm -f libltdl/config-h.in~ libltdl/configure~
+    rm -rf libltdl/config-h.in~ libltdl/configure~ .github
     # git add -f '**' # ignore .gitignore
 
     ./configure --silent --enable-translation
@@ -137,6 +137,7 @@ package_release() {
         filelist+=(" '${f}#Bootstrapped sources: ${f}'")
         filelist+=(" '${f}.asc#Signature for ${f}'")
     done
+    test -d "RELEASENOTES.html" && filelist+=(" 'RELEASENOTES.html#Release notes'")
 
     pushcmd="$GH $repo release create $new_tag -F $release_changelog_file --title "v${new_version}" ${filelist[@]}"
     if [ "$push" = "yes" ] ; then
@@ -184,7 +185,7 @@ echo "repository: $repo"
 
 # check that old tag exists
 # TODO: move to new-release only
-if ! have_tag "$old_tag" ; then
+if false &&  ! have_tag "$old_tag" ; then
     echo "could not find tag $old_tag"
     usage
     exit 2
@@ -226,10 +227,14 @@ if ! fgrep -q "Changes in squid-${new_version}" ${changelog_file}; then
     ${EDITOR:-vi} ChangeLog
     git checkout -b $release_prep_branch $current_branch
     git add ChangeLog
-    git commit -m "Prep for v$new_version"
+
+    $SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
+    git add configure.ac
+
+    git commit -m "v$new_version"
     git push -d $origin $release_prep_branch
     git push $origin
-    $GH $repo pr create --base $current_branch --title "Prep for v$new_version"
+    $GH $repo pr create --base $current_branch --title "v$new_version"
     git switch $current_branch
 
     echo
@@ -250,11 +255,7 @@ if ! $FGREP -q "AC_INIT([Squid Web Proxy],[${new_version}-VCS],[https://bugs.squ
 fi
 
 # update release version in configure.ac
-$SED -i~ "s@${old_version}-VCS@${new_version}-VCS@" configure.ac
-
-git add configure.ac
-git commit -m "v$new_version"
 git tag $new_tag
-git push origin HEAD $new_tag
+git push "$upstream" tag $new_tag
 
 package_release
