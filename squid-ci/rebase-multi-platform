@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+# run in a master checkout dir
+# expect to find remotes:
+#  upstream - official repo
+#  platform-test/upstream - squid-platform-test/squid
+# will clobber local branch: github-actions-multiplatform
+# will rebase and push to platform-test/github-actions-multiplatform and platform-test/master
+
+git fetch --all >/dev/null || (echo "fetch failed"; exit 1)
+
+if ! git remote -v | grep -q '^upstream'; then
+    echo "missing upstream remote"
+    exit 1
+fi
+
+if ! git remote -v | grep -q '^platform-test'; then
+    echo "missing platform-test remote"
+    exit 1
+fi
+
+git branch -D github-actions-multiplatform
+git switch -c github-actions-multiplatform platform-test/github-actions-multiplatform
+git rebase -Xours upstream/master
+
+git push --force platform-test github-actions-multiplatform
+git push --force platform-test github-actions-multiplatform:master
+git switch -
